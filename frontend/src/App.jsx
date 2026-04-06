@@ -13,6 +13,7 @@ import Browse from './pages/customer/Browse';
 import BookingForm from './pages/customer/BookingForm';
 import MyBookings from './pages/customer/MyBookings';
 import ReviewForm from './pages/customer/ReviewForm';
+import CustomerSupport from './pages/customer/Support';
 
 // Provider
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -24,6 +25,8 @@ import JobComplete from './pages/provider/JobComplete';
 import AdminDashboard from './pages/admin/Dashboard';
 import ErrorLogs from './pages/admin/ErrorLogs';
 import AdminProviders from './pages/admin/Providers';
+import AdminSupportTickets from './pages/admin/SupportTickets';
+import AdminFeedback from './pages/admin/Feedback';
 
 export default function App() {
   return (
@@ -75,6 +78,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['CUSTOMER']}>
               <ReviewForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customer/support"
+          element={
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
+              <CustomerSupport />
             </ProtectedRoute>
           }
         />
@@ -135,6 +146,22 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <AdminProviders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/support"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <AdminSupportTickets />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/feedback"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <AdminFeedback />
             </ProtectedRoute>
           }
         />

@@ -1,6 +1,8 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { FiLogOut, FiZap } from 'react-icons/fi';
+import { FiLogOut, FiZap, FiMessageSquare } from 'react-icons/fi';
+import FeedbackModal from './FeedbackModal';
 
 function getInitials(name = '') {
   return name.split(' ').slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
@@ -9,6 +11,7 @@ function getInitials(name = '') {
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showFeedback, setShowFeedback] = useState(false);
 
   function handleLogout() {
     logout();
@@ -20,6 +23,7 @@ export default function Navbar() {
       { to: '/customer/dashboard', label: 'Home' },
       { to: '/customer/browse',    label: 'Browse' },
       { to: '/customer/bookings',  label: 'Bookings' },
+      { to: '/customer/support',   label: 'Support' },
     ],
     PROVIDER: [
       { to: '/provider/dashboard', label: 'Dashboard' },
@@ -29,6 +33,8 @@ export default function Navbar() {
     ADMIN: [
       { to: '/admin/dashboard',  label: 'Revenue' },
       { to: '/admin/providers',  label: 'Providers' },
+      { to: '/admin/support',    label: 'Support' },
+      { to: '/admin/feedback',   label: 'Feedback' },
       { to: '/admin/errors',     label: 'Error Logs' },
     ],
   };
@@ -36,6 +42,8 @@ export default function Navbar() {
   const links = user ? roleLinks[user.user_role] || [] : [];
 
   return (
+    <>
+    {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     <nav className="navbar">
       <div className="navbar-inner">
         {/* Brand */}
@@ -70,6 +78,16 @@ export default function Navbar() {
                 <div className="navbar-avatar">{getInitials(user.username)}</div>
                 <span className="navbar-username">{user.username}</span>
               </div>
+              {user.user_role !== 'ADMIN' && (
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setShowFeedback(true)}
+                  title="Rate ServeMart"
+                  style={{ padding: '0.4rem 0.75rem' }}
+                >
+                  <FiMessageSquare size={15} />
+                </button>
+              )}
               <button
                 className="btn btn-outline btn-sm"
                 onClick={handleLogout}
@@ -89,5 +107,6 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
+    </>
   );
 }

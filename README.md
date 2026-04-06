@@ -360,6 +360,20 @@ All endpoints require `ADMIN` role.
 | GET | `/api/admin/providers` | All providers with background check status |
 | POST | `/api/admin/providers/:id/approve` | Sets `background_chk = 'APPROVED'` for a provider |
 
+### Support Routes (`/api/support`)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/support` | Customer/Provider | Submit a support ticket, optionally linked to a booking |
+| GET | `/api/support/my` | Customer/Provider | List own tickets ordered by date |
+| GET | `/api/support/admin` | Admin | All tickets ordered by status priority then date |
+| PATCH | `/api/support/:id/status` | Admin | Advance ticket status: OPEN → IN_PROGRESS → RESOLVED → CLOSED |
+
+### Feedback Routes (`/api/feedback`)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/feedback` | Customer/Provider | Submit platform feedback with 1–5 star rating |
+| GET | `/api/feedback/admin` | Admin | All feedback with aggregate stats (avg rating, response count, positive count) |
+
 ---
 
 ## Backend Middleware & Utilities
