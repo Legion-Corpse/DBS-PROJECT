@@ -7,10 +7,10 @@ SET DEFINE OFF;
 -- ─── 0. Clean slate ───────────────────────────────────────────────────────────
 BEGIN
     FOR r IN (SELECT table_name FROM user_tables WHERE table_name IN (
-        'ERROR_LOGS','CANCELLATIONS','SUPPORT_TICKETS','REVIEWS','PAYMENTS',
+        'ERROR_LOGS','CANCELLATIONS','REVIEWS','PAYMENTS',
         'INVOICES','BOOKINGS','PROMOTIONS','SERVICES_OFFERED','SERVICE_CATEGORIES',
         'PROVIDER_AVAILABILITY','PROVIDER_AREAS','SERVICE_AREAS','SERVICE_PROVIDERS',
-        'CUSTOMER_ADDRESSES','CUSTOMERS','PLATFORM_FEEDBACK','USERS'
+        'CUSTOMER_ADDRESSES','CUSTOMERS','USERS'
     )) LOOP
         EXECUTE IMMEDIATE 'DROP TABLE ' || r.table_name || ' CASCADE CONSTRAINTS';
     END LOOP;
@@ -229,30 +229,6 @@ CREATE TABLE CANCELLATIONS (
         REFERENCES BOOKINGS(booking_id) ON DELETE CASCADE
 );
 
-CREATE TABLE SUPPORT_TICKETS (
-    ticket_id   NUMBER        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    booking_id  NUMBER,
-    user_id     NUMBER        NOT NULL,
-    subject     VARCHAR2(200) NOT NULL,
-    description VARCHAR2(2000),
-    status      VARCHAR2(20)  DEFAULT 'OPEN'
-                CHECK (status IN ('OPEN','IN_PROGRESS','RESOLVED','CLOSED')),
-    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_tkt_bk   FOREIGN KEY (booking_id)
-        REFERENCES BOOKINGS(booking_id) ON DELETE SET NULL,
-    CONSTRAINT fk_tkt_user FOREIGN KEY (user_id)
-        REFERENCES USERS(user_id) ON DELETE CASCADE
-);
-
-CREATE TABLE PLATFORM_FEEDBACK (
-    feedback_id  NUMBER      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id      NUMBER      NOT NULL,
-    rating       NUMBER(1,0) CHECK (rating BETWEEN 1 AND 5),
-    comments     VARCHAR2(1000),
-    submitted_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_fb_user FOREIGN KEY (user_id)
-        REFERENCES USERS(user_id) ON DELETE CASCADE
-);
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -790,10 +766,10 @@ SET DEFINE OFF;
 -- ─── 0. Clean slate ───────────────────────────────────────────────────────────
 BEGIN
     FOR r IN (SELECT table_name FROM user_tables WHERE table_name IN (
-        'ERROR_LOGS','CANCELLATIONS','SUPPORT_TICKETS','REVIEWS','PAYMENTS',
+        'ERROR_LOGS','CANCELLATIONS','REVIEWS','PAYMENTS',
         'INVOICES','BOOKINGS','PROMOTIONS','SERVICES_OFFERED','SERVICE_CATEGORIES',
         'PROVIDER_AVAILABILITY','PROVIDER_AREAS','SERVICE_AREAS','SERVICE_PROVIDERS',
-        'CUSTOMER_ADDRESSES','CUSTOMERS','PLATFORM_FEEDBACK','USERS'
+        'CUSTOMER_ADDRESSES','CUSTOMERS','USERS'
     )) LOOP
         EXECUTE IMMEDIATE 'DROP TABLE ' || r.table_name || ' CASCADE CONSTRAINTS';
     END LOOP;
@@ -1012,30 +988,6 @@ CREATE TABLE CANCELLATIONS (
         REFERENCES BOOKINGS(booking_id) ON DELETE CASCADE
 );
 
-CREATE TABLE SUPPORT_TICKETS (
-    ticket_id   NUMBER        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    booking_id  NUMBER,
-    user_id     NUMBER        NOT NULL,
-    subject     VARCHAR2(200) NOT NULL,
-    description VARCHAR2(2000),
-    status      VARCHAR2(20)  DEFAULT 'OPEN'
-                CHECK (status IN ('OPEN','IN_PROGRESS','RESOLVED','CLOSED')),
-    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_tkt_bk   FOREIGN KEY (booking_id)
-        REFERENCES BOOKINGS(booking_id) ON DELETE SET NULL,
-    CONSTRAINT fk_tkt_user FOREIGN KEY (user_id)
-        REFERENCES USERS(user_id) ON DELETE CASCADE
-);
-
-CREATE TABLE PLATFORM_FEEDBACK (
-    feedback_id  NUMBER      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id      NUMBER      NOT NULL,
-    rating       NUMBER(1,0) CHECK (rating BETWEEN 1 AND 5),
-    comments     VARCHAR2(1000),
-    submitted_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_fb_user FOREIGN KEY (user_id)
-        REFERENCES USERS(user_id) ON DELETE CASCADE
-);
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
