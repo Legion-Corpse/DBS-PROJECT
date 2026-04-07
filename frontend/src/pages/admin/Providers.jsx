@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { FiRefreshCw, FiCheckCircle, FiClock, FiXCircle, FiUser, FiMail } from 'react-icons/fi';
+import { FiRefreshCw, FiCheckCircle, FiClock, FiXCircle, FiUser, FiMail, FiMapPin, FiPlus } from 'react-icons/fi';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorModal from '../../components/ErrorModal';
-import { getAdminProviders, approveProvider } from '../../api/admin';
+import { getAdminProviders, approveProvider, addServiceArea } from '../../api/admin';
+import { getAreas } from '../../api/providers';
 
 function statusBadge(status) {
   const map = {
@@ -15,6 +16,9 @@ function statusBadge(status) {
 
 export default function AdminProviders() {
   const [providers, setProviders] = useState([]);
+  const [areas, setAreas]         = useState([]);
+  const [areaForm, setAreaForm]   = useState({ cityName: '', regionCode: '' });
+  const [addingArea, setAddingArea] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const [success, setSuccess]     = useState(null);
@@ -33,6 +37,31 @@ export default function AdminProviders() {
   }, []);
 
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
+
+  useEffect(() => {
+    getAreas().then(res => { if (res.success) setAreas(res.data); }).catch(() => {});
+  }, []);
+
+  async function handleAddArea(e) {
+    e.preventDefault();
+    if (!areaForm.cityName || !areaForm.regionCode) return;
+    setAddingArea(true);
+    try {
+      const res = await addServiceArea(areaForm.cityName, areaForm.regionCode);
+      if (res.success) {
+        setSuccess(`Service area "${areaForm.cityName}" added`);
+        setAreaForm({ cityName: '', regionCode: '' });
+        const updated = await getAreas();
+        if (updated.success) setAreas(updated.data);
+      } else {
+        setError(res.error?.message || 'Failed to add area');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Failed to add area');
+    } finally {
+      setAddingArea(false);
+    }
+  }
 
   async function handleApprove(providerId, providerName) {
     setApproving(providerId);
@@ -83,7 +112,7 @@ export default function AdminProviders() {
         </div>
       </div>
 
-      <div className="container" style={{ padding: '2rem 1.5rem' }}>
+      <div className="container" style={{ padding: '2rem 1.5rem', paddingBottom: '3rem' }}>
         {/* Stats */}
         <div className="stats-grid" style={{ marginBottom: '2rem' }}>
           {[
@@ -191,8 +220,58 @@ export default function AdminProviders() {
         )}
       </div>
 
-      {error && <ErrorModal error={error} onClose={() => setError(null)} />}
-      {success && <ErrorModal success title="Provider Approved" message={success} onClose={() => setSuccess(null)} />}
+        {/* Service Areas Management */}
+        <div style={{ marginTop: '3rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <FiMapPin style={{ color: 'var(--accent-mint)' }} />
+            <h3>Service Areas</h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
+              ({areas.length} cities)
+            </span>
+          </div>
+
+          {/* Add area form */}
+          <form onSubmit={handleAddArea} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+            <input
+              className="form-input"
+              style={{ flex: '1', minWidth: '160px' }}
+              placeholder="City name (e.g. Pune)"
+              value={areaForm.cityName}
+              onChange={e => setAreaForm({ ...areaForm, cityName: e.target.value })}
+              maxLength={100}
+            />
+            <input
+              className="form-input"
+              style={{ width: '100px' }}
+              placeholder="Code (e.g. MH)"
+              value={areaForm.regionCode}
+              onChange={e => setAreaForm({ ...areaForm, regionCode: e.target.value.toUpperCase() })}
+              maxLength={10}
+            />
+            <button type="submit" className="btn btn-primary" disabled={addingArea || !areaForm.cityName || !areaForm.regionCode}>
+              <FiPlus size={14} /> {addingArea ? 'Adding…' : 'Add City'}
+            </button>
+          </form>
+
+          {/* Areas list */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {areas.map(a => (
+              <div key={a.AREA_ID} style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                borderRadius: 99, padding: '0.35rem 0.9rem', fontSize: '0.85rem'
+              }}>
+                <FiMapPin size={11} style={{ color: 'var(--accent-mint)' }} />
+                <span>{a.CITY_NAME}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>· {a.REGION_CODE}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {error && <ErrorModal message={error} onClose={() => setError(null)} />}
+      {success && <ErrorModal message={success} type="success" onClose={() => setSuccess(null)} />}
     </div>
   );
 }

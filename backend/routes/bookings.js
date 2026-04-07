@@ -124,6 +124,36 @@ router.get('/booked-slots/:providerId', async (req, res) => {
     }
 });
 
+// Returns the city from the customer's most recently used booking address
+// Used by the customer dashboard to auto-detect location for recommendations
+router.get('/my-city', requireAuth, async (req, res) => {
+    if (req.user.user_role !== 'CUSTOMER') {
+        return res.status(403).json({ success: false, error: { message: 'Customers only' } });
+    }
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const result = await connection.execute(
+            `SELECT ca.city
+             FROM CUSTOMER_ADDRESSES ca
+             JOIN BOOKINGS b ON b.address_id = ca.address_id
+             JOIN CUSTOMERS c ON b.customer_id = c.customer_id
+             WHERE c.user_id = :1
+             ORDER BY b.created_at DESC
+             FETCH FIRST 1 ROW ONLY`,
+            [req.user.user_id],
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        const city = result.rows.length > 0 ? result.rows[0].CITY : null;
+        res.json({ success: true, data: { city } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: { message: err.message } });
+    } finally {
+        if (connection) { try { await connection.close(); } catch (e) {} }
+    }
+});
+
 router.get('/my', requireAuth, async (req, res) => {
     let connection;
     try {

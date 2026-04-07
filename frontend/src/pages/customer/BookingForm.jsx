@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiCalendar, FiClock, FiTag, FiMapPin, FiArrowLeft, FiCheckCircle, FiGift } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiTag, FiMapPin, FiArrowLeft, FiCheckCircle, FiGift, FiAlertTriangle } from 'react-icons/fi';
 import { getProvider } from '../../api/providers';
 import { createBooking } from '../../api/bookings';
 import api from '../../api/axios';
@@ -326,6 +326,21 @@ export default function BookingForm() {
                         onChange={(e) => setForm({ ...form, city: e.target.value })}
                       />
                       {errors.city && <span className="form-error">{errors.city}</span>}
+                      {(() => {
+                        if (!form.city || !areas || areas.length === 0) return null;
+                        const covered = areas.some(a =>
+                          (a.CITY_NAME || a.city_name || '').toLowerCase() === form.city.trim().toLowerCase()
+                        );
+                        if (covered) return null;
+                        return (
+                          <div style={{ marginTop: '0.4rem', display: 'flex', alignItems: 'flex-start', gap: '0.4rem', color: '#F59E0B', fontSize: '0.78rem' }}>
+                            <FiAlertTriangle size={13} style={{ flexShrink: 0, marginTop: '1px' }} />
+                            <span>
+                              This provider primarily serves: {areas.map(a => a.CITY_NAME || a.city_name).join(', ')}. Your city may be outside their normal coverage.
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div>
                       <input

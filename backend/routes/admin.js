@@ -95,6 +95,35 @@ router.get('/providers', requireAuth, async (req, res) => {
     }
 });
 
+// POST /api/admin/areas — add a new service area city
+router.post('/areas', requireAuth, async (req, res) => {
+    if (req.user.user_role !== 'ADMIN') {
+        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admins only' } });
+    }
+    const { cityName, regionCode } = req.body;
+    if (!cityName || !regionCode) {
+        return res.status(400).json({ success: false, error: { message: 'cityName and regionCode are required' } });
+    }
+    let connection;
+    try {
+        connection = await db.getConnection();
+        await connection.execute(
+            `INSERT INTO SERVICE_AREAS (city_name, region_code) VALUES (:1, :2)`,
+            [cityName.trim(), regionCode.trim().toUpperCase()],
+            { autoCommit: true }
+        );
+        res.json({ success: true, data: { message: `Service area "${cityName}" added` } });
+    } catch (err) {
+        if (err.message && err.message.includes('ORA-00001')) {
+            return res.status(409).json({ success: false, error: { message: 'This city already exists as a service area' } });
+        }
+        console.error(err);
+        res.status(500).json({ success: false, error: { message: err.message } });
+    } finally {
+        if (connection) { try { await connection.close(); } catch (e) {} }
+    }
+});
+
 router.post('/providers/:id/approve', requireAuth, async (req, res) => {
     if (req.user.user_role !== 'ADMIN') {
         return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied: Admins only' } });

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorModal from '../../components/ErrorModal';
 import { getMyBookings, completeBooking } from '../../api/bookings';
+import { getMyAreas } from '../../api/providers';
 
 function statusBadge(status) {
   const map = {
@@ -21,6 +22,7 @@ export default function ProviderDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
+  const [myAreas, setMyAreas] = useState(null); // null = loading, [] = loaded but empty
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(null);
   const [error, setError] = useState(null);
@@ -43,6 +45,12 @@ export default function ProviderDashboard() {
     const interval = setInterval(fetchBookings, 30000);
     return () => clearInterval(interval);
   }, [fetchBookings]);
+
+  useEffect(() => {
+    getMyAreas()
+      .then(res => { if (res.success) setMyAreas(res.data); })
+      .catch(() => setMyAreas([]));
+  }, []);
 
   async function handleComplete(bookingId) {
     setCompleting(bookingId);
@@ -96,6 +104,33 @@ export default function ProviderDashboard() {
       </div>
 
       <div className="container" style={{ padding: '2rem 1.5rem' }}>
+
+        {/* No-areas setup banner */}
+        {myAreas !== null && myAreas.length === 0 && (
+          <div style={{
+            background: 'rgba(245,158,11,0.1)',
+            border: '1px solid rgba(245,158,11,0.35)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            flexWrap: 'wrap'
+          }}>
+            <FiMapPin size={20} style={{ color: '#F59E0B', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 600, color: '#F59E0B', marginBottom: '0.15rem' }}>You haven't set your service areas yet</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Customers filter and discover providers by city. Without areas, you won't appear in area searches or recommendations.
+              </p>
+            </div>
+            <a href="/provider/areas" className="btn btn-sm" style={{ background: '#F59E0B', color: '#000', fontWeight: 600, flexShrink: 0 }}>
+              Set Up Areas
+            </a>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="stats-grid" style={{ marginBottom: '2rem' }}>
           <div className="stat-card">

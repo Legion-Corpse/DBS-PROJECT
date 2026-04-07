@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiSearch, FiCalendar, FiCheckCircle, FiGrid, FiArrowRight, FiZap } from 'react-icons/fi';
+import { FiSearch, FiCalendar, FiCheckCircle, FiGrid, FiArrowRight, FiZap, FiMapPin, FiStar } from 'react-icons/fi';
 import { FaWrench, FaBolt, FaBroom, FaHardHat } from 'react-icons/fa';
 import { MdOutlineHomeRepairService } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
 import ProviderCard from '../../components/ProviderCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { getProviders } from '../../api/providers';
+import { getProviders, getAreas, getRecommended } from '../../api/providers';
 import { getMyBookings } from '../../api/bookings';
+import api from '../../api/axios';
 
 const QUICK_CATS = [
   { name: 'Plumbing',     icon: <FaWrench />, accent: '#60A5FA' },
@@ -18,16 +19,34 @@ const QUICK_CATS = [
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
-  const [providers, setProviders] = useState([]);
-  const [bookings, setBookings]   = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState('');
+  const [providers, setProviders]         = useState([]);
+  const [bookings, setBookings]           = useState([]);
+  const [recommended, setRecommended]     = useState([]);
+  const [detectedCity, setDetectedCity]   = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [search, setSearch]               = useState('');
 
   useEffect(() => {
-    Promise.all([getProviders(), getMyBookings()])
-      .then(([pRes, bRes]) => {
+    Promise.all([getProviders(), getMyBookings(), getAreas()])
+      .then(async ([pRes, bRes, areaRes]) => {
         if (pRes.success) setProviders(pRes.data);
         if (bRes.success) setBookings(bRes.data);
+
+        // Detect customer's city from most recent booking address and load recommendations
+        try {
+          const cityRes = await api.get('/api/bookings/my-city');
+          const city = cityRes.data?.data?.city;
+          if (city && areaRes.success) {
+            const match = areaRes.data.find(a => a.CITY_NAME.toLowerCase() === city.toLowerCase());
+            if (match) {
+              setDetectedCity(match.CITY_NAME);
+              const recRes = await getRecommended(match.AREA_ID);
+              if (recRes.success) setRecommended(recRes.data);
+            }
+          }
+        } catch {
+          // No bookings yet or city not in SERVICE_AREAS — recommendations stay empty
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -155,6 +174,50 @@ export default function CustomerDashboard() {
             ))}
           </div>
         </div>
+
+        {/* Location-aware recommendations */}
+        {recommended.length > 0 && !search && (
+          <div style={{ marginBottom: '2.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FiMapPin size={16} style={{ color: 'var(--accent-mint)' }} />
+                <h3>Recommended near {detectedCity}</h3>
+              </div>
+              <Link to={`/customer/browse`} style={{ fontSize: '0.8rem', color: 'var(--accent-mint)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                See all <FiArrowRight size={14} />
+              </Link>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {recommended.slice(0, 5).map((p, i) => (
+                <div key={p.PROVIDER_ID} className="card animate-fade-up" style={{
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex', alignItems: 'center', gap: '1rem',
+                  animationDelay: `${i * 0.05}s`
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                    background: i === 0 ? '#F59E0B33' : 'var(--bg-card)',
+                    border: i === 0 ? '1px solid #F59E0B66' : '1px solid var(--border-subtle)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700, fontSize: '0.82rem', color: i === 0 ? '#F59E0B' : 'var(--text-muted)'
+                  }}>
+                    {i + 1}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.FULL_NAME}</p>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <FiStar size={11} style={{ color: '#F59E0B' }} />
+                      {p.RATING_AVG} · {p.JOBS_COMPLETED} jobs · Score: {p.SCORE}
+                    </p>
+                  </div>
+                  <Link to={`/customer/book/${p.PROVIDER_ID}`} className="btn btn-primary btn-sm">
+                    Book
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Providers grid */}
         <div style={{ marginBottom: '2rem' }}>

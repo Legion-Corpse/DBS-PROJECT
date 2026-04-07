@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { FiMapPin } from 'react-icons/fi';
 import StarRating from './StarRating';
 
 const AVATAR_GRADIENTS = [
@@ -38,6 +39,7 @@ export default function ProviderCard({ provider, onBook, showBookBtn = true }) {
   const rating   = parseFloat(RATING_AVG || rating_avg || 0);
   const jobs     = JOBS_COMPLETED || jobs_completed || 0;
   const rate     = HOURLY_RATE || hourly_rate;
+  const cities   = (provider.CITIES || provider.cities || '').split(',').map(c => c.trim()).filter(Boolean);
 
   function handleBook() {
     if (onBook) return onBook(provider);
@@ -64,6 +66,14 @@ export default function ProviderCard({ provider, onBook, showBookBtn = true }) {
         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
           {jobs > 0 ? `${jobs} jobs completed` : 'New provider'}
         </p>
+        {cities.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+            <FiMapPin size={11} style={{ color: 'var(--accent-mint)', flexShrink: 0 }} />
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              {cities.slice(0, 3).join(' · ')}{cities.length > 3 ? ` +${cities.length - 3}` : ''}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="provider-card-stats">

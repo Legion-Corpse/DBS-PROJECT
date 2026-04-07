@@ -19,3 +19,8 @@ export async function approveProvider(providerId) {
   const res = await api.post(`/api/admin/providers/${providerId}/approve`);
   return res.data;
 }
+
+export async function addServiceArea(cityName, regionCode) {
+  const res = await api.post('/api/admin/areas', { cityName, regionCode });
+  return res.data;
+}
