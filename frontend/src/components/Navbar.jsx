@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FiLogOut, FiZap } from 'react-icons/fi';
+import { FiLogOut } from 'react-icons/fi';
 
 function getInitials(name = '') {
   return name.split(' ').slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
@@ -41,7 +41,7 @@ export default function Navbar() {
       <div className="navbar-inner">
         {/* Brand */}
         <Link to="/" className="navbar-brand">
-          <FiZap size={20} style={{ color: '#A78BFA', flexShrink: 0 }} />
+          <img src="/logo.png" alt="ServeMart" style={{ height: '24px', width: 'auto', flexShrink: 0 }} />
           ServeMart
         </Link>
 

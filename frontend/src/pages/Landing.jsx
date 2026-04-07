@@ -454,7 +454,7 @@ export default function Landing() {
       }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <FiZap size={18} style={{ color: '#A78BFA' }} />
+            <img src="/logo.png" alt="ServeMart" style={{ height: '22px', width: 'auto' }} />
             <span style={{
               fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem',
               background: 'linear-gradient(135deg, #A78BFA, #00F5A0)',

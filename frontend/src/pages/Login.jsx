@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FiUser, FiLock, FiEye, FiEyeOff, FiZap, FiCheckCircle } from 'react-icons/fi';
+import { FiUser, FiLock, FiEye, FiEyeOff, FiCheckCircle } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { login as loginApi } from '../api/auth';
 
@@ -80,7 +80,7 @@ export default function Login() {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             textDecoration: 'none',
           }}>
-            <FiZap size={22} style={{ color: '#A78BFA' }} />
+            <img src="/logo.png" alt="ServeMart" style={{ height: '28px', width: 'auto' }} />
             ServeMart
           </Link>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.375rem' }}>

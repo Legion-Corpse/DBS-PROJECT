@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiUser, FiMail, FiLock, FiPhone, FiEye, FiEyeOff, FiZap } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiPhone, FiEye, FiEyeOff } from 'react-icons/fi';
 import { FaUserTie, FaHardHat } from 'react-icons/fa';
 import { register as registerApi } from '../api/auth';
 
@@ -93,7 +93,7 @@ export default function Register({ type }) {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             textDecoration: 'none',
           }}>
-            <FiZap size={22} style={{ color: '#A78BFA' }} /> ServeMart
+            <img src="/logo.png" alt="ServeMart" style={{ height: '28px', width: 'auto' }} /> ServeMart
           </Link>
         </div>
 
