@@ -8,13 +8,14 @@ export default function JobComplete() {
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const [completing, setCompleting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
   async function handleComplete() {
     setCompleting(true);
     try {
-      const res = await completeBooking(bookingId);
+      const res = await completeBooking(bookingId, paymentMethod);
       if (res.success) {
         setSuccess(true);
       } else {
@@ -32,8 +33,8 @@ export default function JobComplete() {
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'var(--bg-light)', padding: '2rem',
     }}>
-      <div style={{ maxWidth: '440px', width: '100%' }}>
-        <div className="card" style={{ textAlign: 'center' }}>
+      <div style={{ maxWidth: '480px', width: '100%' }}>
+        <div className="card">
           <div style={{
             width: '80px', height: '80px', borderRadius: '50%',
             background: '#D1FAE5', color: 'var(--success)',
@@ -43,24 +44,31 @@ export default function JobComplete() {
             <FiCheckCircle />
           </div>
 
-          <h2 style={{ marginBottom: '0.5rem' }}>Mark Job Complete</h2>
-          <p style={{ marginBottom: '0.5rem' }}>Booking ID: <strong>#{bookingId}</strong></p>
-          <p style={{ marginBottom: '2rem' }}>
-            Confirm that the service has been delivered to the customer. An invoice will be generated automatically.
+          <h2 style={{ textAlign: 'center', marginBottom: '0.5rem' }}>Mark Job Complete</h2>
+          <p style={{ textAlign: 'center', marginBottom: '0.25rem' }}>Booking ID: <strong>#{bookingId}</strong></p>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.75rem' }}>
+            Confirm the service was delivered and select how the customer paid.
           </p>
 
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginBottom: '1.75rem' }}>
+            {[['CASH', 'Cash'], ['UPI', 'UPI'], ['CREDIT_CARD', 'Credit / Debit Card']].map(([val, label]) => (
+              <label key={val} style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                padding: '0.875rem 1rem', borderRadius: 'var(--radius-md)',
+                border: paymentMethod === val ? '2px solid var(--purple-primary)' : '1px solid var(--border-subtle)',
+                cursor: 'pointer'
+              }}>
+                <input type="radio" checked={paymentMethod === val} onChange={() => setPaymentMethod(val)} />
+                <span style={{ fontWeight: 500 }}>{label}</span>
+              </label>
+            ))}
+          </div>
+
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-            <button
-              className="btn btn-outline"
-              onClick={() => navigate('/provider/dashboard')}
-            >
+            <button className="btn btn-outline" onClick={() => navigate('/provider/dashboard')}>
               <FiArrowLeft /> Back
             </button>
-            <button
-              className="btn btn-success"
-              onClick={handleComplete}
-              disabled={completing}
-            >
+            <button className="btn btn-success" onClick={handleComplete} disabled={completing}>
               <FiCheckCircle />
               {completing ? 'Processing...' : 'Confirm Completion'}
             </button>

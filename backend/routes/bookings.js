@@ -15,13 +15,13 @@ const createBookingSchema = z.object({
     buildingName: z.string().optional(),
     areaLandmark: z.string().optional(),
     city: z.string().optional(),
-    postalCode: z.number().int().positive().optional(),
+    postalCode: z.number().int().positive(),
     availabilityId: z.number().int().positive(),
     promoCode: z.string().optional().nullable(),
     scheduledDate: z.string().datetime(), // ISO 8601 string
     durationHours: z.number().positive()
-}).refine(data => data.addressId || (data.houseNo && data.areaLandmark && data.city), {
-    message: "Either addressId or (houseNo, areaLandmark and city) must be provided."
+}).refine(data => data.addressId || (data.houseNo && data.areaLandmark && data.city && data.postalCode), {
+    message: "Either addressId or (houseNo, areaLandmark, city and postalCode) must be provided."
 });
 
 router.post('/create', requireAuth, validate(createBookingSchema), async (req, res) => {
@@ -89,6 +89,42 @@ router.post('/create', requireAuth, validate(createBookingSchema), async (req, r
         if (connection) {
             try { await connection.close(); } catch (err) { console.error(err); }
         }
+    }
+});
+
+// Validates a promo code and returns discount info
+router.get('/validate-promo', requireAuth, async (req, res) => {
+    const code = (req.query.code || '').trim();
+    if (!code) {
+        return res.status(400).json({ success: false, error: { message: 'code is required' } });
+    }
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const result = await connection.execute(
+            `SELECT discount_percentage, max_discount_amt, min_order_amt
+             FROM PROMOTIONS
+             WHERE UPPER(promo_code) = UPPER(:1)
+               AND is_active = 1
+               AND valid_until > CURRENT_TIMESTAMP
+               AND current_uses < max_uses`,
+            [code],
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: { message: 'Invalid or expired promo code' } });
+        }
+        const p = result.rows[0];
+        res.json({ success: true, data: {
+            discountPercentage: p.DISCOUNT_PERCENTAGE,
+            maxDiscountAmt: p.MAX_DISCOUNT_AMT,
+            minOrderAmt: p.MIN_ORDER_AMT
+        }});
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: { message: err.message } });
+    } finally {
+        if (connection) { try { await connection.close(); } catch (e) {} }
     }
 });
 
@@ -160,7 +196,7 @@ router.get('/my', requireAuth, async (req, res) => {
         connection = await db.getConnection();
 
         let query = `
-            SELECT 
+            SELECT
                 b.booking_id,
                 so.service_name,
                 sp.first_name || ' ' || sp.last_name AS provider,
@@ -171,7 +207,8 @@ router.get('/my', requireAuth, async (req, res) => {
                 TO_CHAR(b.scheduled_date + b.duration_hours/24, 'HH24:MI') AS slot_end,
                 b.status,
                 i.net_total,
-                py.payment_status
+                py.payment_status,
+                cn.reason AS cancellation_reason
             FROM BOOKINGS b
             JOIN SERVICES_OFFERED so ON b.service_id = so.service_id
             JOIN SERVICE_PROVIDERS sp ON so.provider_id = sp.provider_id
@@ -179,6 +216,7 @@ router.get('/my', requireAuth, async (req, res) => {
             JOIN CUSTOMER_ADDRESSES ca ON b.address_id = ca.address_id
             LEFT JOIN INVOICES i ON b.booking_id = i.booking_id
             LEFT JOIN PAYMENTS py ON i.invoice_id = py.invoice_id
+            LEFT JOIN CANCELLATIONS cn ON b.booking_id = cn.booking_id
         `;
         
         let whereClause = "";
@@ -253,10 +291,12 @@ router.post('/complete/:id', requireAuth, async (req, res) => {
         );
         if (invRow.rows.length > 0) {
             const [invoiceId, netTotal] = invRow.rows[0];
+            const validMethods = ['CASH', 'UPI', 'CREDIT_CARD'];
+            const method = validMethods.includes(req.body.paymentMethod) ? req.body.paymentMethod : 'CASH';
             await connection.execute(
                 `INSERT INTO PAYMENTS (invoice_id, amount_paid, payment_method, payment_status, transaction_id)
-                 VALUES (:1, :2, 'CASH', 'SUCCESS', :3)`,
-                [invoiceId, netTotal, `TXN_${Date.now()}`],
+                 VALUES (:1, :2, :3, 'SUCCESS', :4)`,
+                [invoiceId, netTotal, method, `TXN_${Date.now()}`],
                 { autoCommit: true }
             );
         }

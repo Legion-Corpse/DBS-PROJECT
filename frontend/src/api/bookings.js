@@ -10,8 +10,8 @@ export async function getMyBookings() {
   return res.data;
 }
 
-export async function completeBooking(id) {
-  const res = await api.post(`/api/bookings/complete/${id}`);
+export async function completeBooking(id, paymentMethod = 'CASH') {
+  const res = await api.post(`/api/bookings/complete/${id}`, { paymentMethod });
   return res.data;
 }
 

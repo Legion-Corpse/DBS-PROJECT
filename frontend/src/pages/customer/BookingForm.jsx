@@ -37,9 +37,10 @@ export default function BookingForm() {
   const [selectedDateStr, setSelectedDateStr] = useState('');
   const [intervalOptions, setIntervalOptions] = useState([]);
   const [selectedInterval, setSelectedInterval] = useState(null);
-  const [step, setStep] = useState(1); // 1: Details, 2: Payment, 3: Success
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [step, setStep] = useState(1); // 1: Details, 2: Success
   const [bookedSlots, setBookedSlots] = useState([]); // {booking_date, start_hour, end_hour}
+  const [promoStatus, setPromoStatus] = useState(null); // null | { discountPercentage, maxDiscountAmt } | 'error'
+  const [promoMsg, setPromoMsg] = useState('');
 
   // Helper to find the next few dates for a given day name (e.g., 'MONDAY')
   function getNextDates(dayName, count = 4) {
@@ -188,18 +189,22 @@ export default function BookingForm() {
     }
   }
 
-  const [paying, setPaying] = useState(false);
-  const [bookingIdForPayment, setBookingIdForPayment] = useState(null);
-
-  async function handlePaymentConfirm() {
-    setPaying(true);
-    // Payment is confirmed client-side (no invoice yet — invoice generates when provider completes the job).
-    // We save the chosen payment method for when the invoice is generated and viewable.
-    // The payment method selection here is purely informational at booking time.
-    setTimeout(() => {
-      setStep(3);
-      setPaying(false);
-    }, 800);
+  async function handleCheckPromo() {
+    const code = form.promoCode.trim();
+    if (!code) return;
+    setPromoStatus(null);
+    setPromoMsg('');
+    try {
+      const res = await api.get(`/api/bookings/validate-promo?code=${encodeURIComponent(code)}`);
+      if (res.data.success) {
+        setPromoStatus(res.data.data);
+        const { discountPercentage, maxDiscountAmt } = res.data.data;
+        setPromoMsg(`${discountPercentage}% off (up to ₹${maxDiscountAmt})`);
+      }
+    } catch (err) {
+      setPromoStatus('error');
+      setPromoMsg(err.response?.data?.error?.message || 'Invalid promo code');
+    }
   }
 
   if (loading) return <LoadingSpinner text="Loading provider details..." />;
@@ -240,15 +245,14 @@ export default function BookingForm() {
               <h2 style={{ color: 'white', marginBottom: '0.25rem' }}>Book a Service</h2>
               <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
                 {step === 1 && 'Select your preferred time and address'}
-                {step === 2 && 'Complete your payment to confirm'}
-                {step === 3 && 'All set! Your booking is confirmed'}
+                {step === 2 && 'All set! Your booking is confirmed'}
               </p>
             </div>
             {/* Step Indicator */}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {[1, 2, 3].map(s => (
-                <div key={s} style={{ 
-                  width: '8px', height: '8px', borderRadius: '50%', 
+              {[1, 2].map(s => (
+                <div key={s} style={{
+                  width: '8px', height: '8px', borderRadius: '50%',
                   background: step >= s ? 'white' : 'rgba(255,255,255,0.3)',
                   transition: 'all 0.3s'
                 }} />
@@ -259,7 +263,7 @@ export default function BookingForm() {
       </div>
 
       <div className="container" style={{ padding: '2rem 1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: step < 3 ? '1fr 340px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: step < 2 ? '1fr 340px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
 
           {/* Step 1: Details */}
           {step === 1 && (
@@ -439,47 +443,46 @@ export default function BookingForm() {
                 {/* Promo Code */}
                 <div className="form-group">
                   <label className="form-label"><FiTag style={{ marginRight: '0.375rem' }} />Promo Code <span style={{ fontWeight: 400, fontSize: '0.75rem', color: 'var(--text-muted)' }}>(optional)</span></label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Enter promo code for a discount"
-                    value={form.promoCode}
-                    onChange={(e) => setForm({ ...form, promoCode: e.target.value.toUpperCase() })}
-                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                  />
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Enter promo code for a discount"
+                      value={form.promoCode}
+                      onChange={(e) => {
+                        setForm({ ...form, promoCode: e.target.value.toUpperCase() });
+                        setPromoStatus(null);
+                        setPromoMsg('');
+                      }}
+                      style={{ textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={handleCheckPromo}
+                      disabled={!form.promoCode.trim()}
+                      style={{ flexShrink: 0 }}
+                    >
+                      <FiGift /> Check
+                    </button>
+                  </div>
+                  {promoMsg && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: promoStatus === 'error' ? 'var(--error)' : 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      {promoStatus === 'error' ? <FiAlertTriangle size={13} /> : <FiCheckCircle size={13} />}
+                      {promoMsg}
+                    </div>
+                  )}
                 </div>
 
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={submitting}>
-                  {submitting ? 'Creating Booking...' : 'Continue to Payment'}
+                  {submitting ? 'Creating Booking...' : 'Confirm Booking'}
                 </button>
               </form>
             </div>
           )}
 
-          {/* Step 2: Payment */}
+          {/* Step 2: Success */}
           {step === 2 && (
-            <div className="card">
-              <h3 style={{ marginBottom: '1.5rem' }}>Choose Payment Method</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-                {['CASH', 'UPI', 'CREDIT_CARD'].map(m => (
-                  <label key={m} style={{ 
-                    display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', 
-                    borderRadius: 'var(--radius-md)', border: paymentMethod === m ? '2px solid var(--purple-primary)' : '1px solid var(--border-subtle)',
-                    cursor: 'pointer'
-                  }}>
-                    <input type="radio" checked={paymentMethod === m} onChange={() => setPaymentMethod(m)} />
-                    <div style={{ fontWeight: 600 }}>{m === 'CASH' ? 'Cash on Delivery' : m === 'CREDIT_CARD' ? 'Credit / Debit Card' : m}</div>
-                  </label>
-                ))}
-              </div>
-              <button className="btn btn-primary" style={{ width: '100%' }} onClick={handlePaymentConfirm} disabled={paying}>
-                {paying ? 'Processing Payment...' : 'Confirm & Pay'}
-              </button>
-            </div>
-          )}
-
-          {/* Step 3: Success */}
-          {step === 3 && (
             <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
               <div style={{
                 width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(16,185,129,0.15)',
@@ -493,7 +496,7 @@ export default function BookingForm() {
                 Your booking is now <strong>pending</strong> and the provider has been notified.
               </p>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '2rem' }}>
-                Payment via <strong>{paymentMethod === 'CASH' ? 'Cash on Delivery' : paymentMethod === 'CREDIT_CARD' ? 'Credit / Debit Card' : 'UPI'}</strong> — invoice will be generated once the job is completed.
+                Payment will be collected after the service is completed. An invoice will be generated at that time.
               </p>
               <button className="btn btn-primary" onClick={() => navigate('/customer/bookings')}>
                 Go to My Bookings
@@ -501,8 +504,8 @@ export default function BookingForm() {
             </div>
           )}
 
-          {/* Sidebar (Only in Step 1 & 2) */}
-          {step < 3 && (
+          {/* Sidebar (Only in Step 1) */}
+          {step < 2 && (
             <div>
               <div className="card" style={{ marginBottom: '1rem' }}>
                 <h4 style={{ marginBottom: '1rem' }}>Provider Details</h4>

@@ -81,7 +81,7 @@ export default function ProviderCard({ provider, onBook, showBookBtn = true }) {
           {rate ? (
             <div className="provider-rate">₹{rate}<span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)' }}>/hr</span></div>
           ) : (
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Contact for rates</div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>View services →</div>
           )}
         </div>
         {showBookBtn && (

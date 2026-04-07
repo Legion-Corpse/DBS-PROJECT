@@ -24,6 +24,7 @@ export default function BookingCard({ booking, onCancel, onReview, onViewInvoice
     STATUS, status,
     NET_TOTAL, net_total,
     PAYMENT_STATUS, payment_status,
+    CANCELLATION_REASON, cancellation_reason,
   } = booking;
 
   const id = BOOKING_ID || booking_id;
@@ -36,6 +37,7 @@ export default function BookingCard({ booking, onCancel, onReview, onViewInvoice
   const st = STATUS || status || 'PENDING';
   const total = NET_TOTAL || net_total;
   const payStatus = PAYMENT_STATUS || payment_status;
+  const cancelReason = CANCELLATION_REASON || cancellation_reason;
 
   const formattedDate = date
     ? new Date(date).toLocaleDateString('en-IN', {
@@ -60,6 +62,12 @@ export default function BookingCard({ booking, onCancel, onReview, onViewInvoice
         <span className={`badge ${statusBadge(st)}`}>{st}</span>
       </div>
 
+      {cancelReason && st === 'CANCELLED' && (
+        <div style={{ padding: '0.5rem 0.75rem', margin: '0 0 0.5rem', background: '#FEF2F2', borderRadius: '6px', fontSize: '0.8rem', color: '#B91C1C' }}>
+          <strong>Cancellation reason:</strong> {cancelReason}
+        </div>
+      )}
+
       <div className="booking-card-footer">
         <div>
           {total != null ? (
@@ -67,7 +75,7 @@ export default function BookingCard({ booking, onCancel, onReview, onViewInvoice
               ₹{parseFloat(total).toFixed(2)}
               {payStatus && <span> · {payStatus}</span>}
             </div>
-          ) : (
+          ) : st === 'CANCELLED' ? null : (
             <div className="booking-total" style={{ color: 'var(--text-muted)', fontWeight: 500 }}>
               Invoice pending
             </div>

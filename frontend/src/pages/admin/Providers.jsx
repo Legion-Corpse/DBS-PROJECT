@@ -269,8 +269,8 @@ export default function AdminProviders() {
           </div>
         </div>
 
-      {error && <ErrorModal message={error} onClose={() => setError(null)} />}
-      {success && <ErrorModal message={success} type="success" onClose={() => setSuccess(null)} />}
+      {error && <ErrorModal error={error} onClose={() => setError(null)} />}
+      {success && <ErrorModal success title="Done" message={success} onClose={() => setSuccess(null)} />}
     </div>
   );
 }

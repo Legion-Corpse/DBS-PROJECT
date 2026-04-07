@@ -65,16 +65,20 @@ export default function ManageAreas() {
     const myAreaIds = new Set(myAreas.map(a => a.AREA_ID));
     const available = allAreas.filter(a => !myAreaIds.has(a.AREA_ID));
 
-    if (loading) return <LoadingSpinner />;
-
     return (
-        <div className="page-container" style={{ maxWidth: 700 }}>
-            <div style={{ marginBottom: '1.75rem' }}>
-                <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>Service Areas</h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                    Select which cities you are available to work in. Customers filter and discover providers by area.
-                </p>
+        <div style={{ minHeight: '100vh', background: 'var(--bg-light)' }}>
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, var(--purple-primary), var(--purple-dark))', padding: '2rem 1.5rem' }}>
+                <div className="container">
+                    <h2 style={{ color: 'white', marginBottom: '0.25rem' }}>Service Areas</h2>
+                    <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                        Select which cities you're available to work in
+                    </p>
+                </div>
             </div>
+
+        <div className="container" style={{ maxWidth: 760, padding: '2.5rem 1.5rem' }}>
+            {loading ? <LoadingSpinner /> : (<>
 
             {/* Currently serving */}
             <div style={{ marginBottom: '2rem' }}>
@@ -152,8 +156,10 @@ export default function ManageAreas() {
                 )}
             </div>
 
-            {error && <ErrorModal message={error} onClose={() => setError(null)} />}
-            {success && <ErrorModal message={success} type="success" onClose={() => setSuccess(null)} />}
+            {error && <ErrorModal error={error} onClose={() => setError(null)} />}
+            {success && <ErrorModal success title="Done" message={success} onClose={() => setSuccess(null)} />}
+            </>)}
+        </div>
         </div>
     );
 }

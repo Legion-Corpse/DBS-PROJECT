@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiCalendar, FiCheckCircle, FiClock, FiRefreshCw, FiMapPin, FiUser } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiClock, FiRefreshCw, FiMapPin, FiUser, FiXCircle } from 'react-icons/fi';
 import { MdOutlineBookmarkBorder } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorModal from '../../components/ErrorModal';
-import { getMyBookings, completeBooking } from '../../api/bookings';
+import { getMyBookings, completeBooking, cancelBooking } from '../../api/bookings';
 import { getMyAreas } from '../../api/providers';
 
 function statusBadge(status) {
@@ -25,6 +25,11 @@ export default function ProviderDashboard() {
   const [myAreas, setMyAreas] = useState(null); // null = loading, [] = loaded but empty
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(null);
+  const [completeModal, setCompleteModal] = useState(null); // booking id
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [cancelling, setCancelling] = useState(null);
+  const [cancelModal, setCancelModal] = useState(null); // booking id
+  const [cancelReason, setCancelReason] = useState('');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [filter, setFilter] = useState('CONFIRMED');
@@ -52,11 +57,14 @@ export default function ProviderDashboard() {
       .catch(() => setMyAreas([]));
   }, []);
 
-  async function handleComplete(bookingId) {
+  async function handleComplete() {
+    const bookingId = completeModal;
     setCompleting(bookingId);
     try {
-      const res = await completeBooking(bookingId);
+      const res = await completeBooking(bookingId, paymentMethod);
       if (res.success) {
+        setCompleteModal(null);
+        setPaymentMethod('CASH');
         setSuccess('Job marked as complete! Invoice has been generated.');
         fetchBookings();
       } else {
@@ -66,6 +74,26 @@ export default function ProviderDashboard() {
       setError(err.response?.data?.error?.message || 'Failed to complete booking');
     } finally {
       setCompleting(null);
+    }
+  }
+
+  async function handleCancel() {
+    if (!cancelReason.trim()) return;
+    setCancelling(cancelModal);
+    try {
+      const res = await cancelBooking(cancelModal, cancelReason);
+      if (res.success) {
+        setCancelModal(null);
+        setCancelReason('');
+        setSuccess('Booking cancelled.');
+        fetchBookings();
+      } else {
+        setError(res.error?.message || 'Cancellation failed');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Cancellation failed');
+    } finally {
+      setCancelling(null);
     }
   }
 
@@ -200,6 +228,7 @@ export default function ProviderDashboard() {
               const slotEnd = b.SLOT_END || b.slot_end;
               const status = b.STATUS || b.status || 'PENDING';
               const total = b.NET_TOTAL || b.net_total;
+              const cancelReason = b.CANCELLATION_REASON || b.cancellation_reason;
 
               return (
                 <div key={id || i} className={`booking-card status-${status.toLowerCase()}`}>
@@ -223,6 +252,11 @@ export default function ProviderDashboard() {
                     </div>
                     <span className={`badge ${statusBadge(status)}`}>{status}</span>
                   </div>
+                  {cancelReason && status === 'CANCELLED' && (
+                    <div style={{ padding: '0.5rem 0.75rem', margin: '0 0 0.5rem', background: '#FEF2F2', borderRadius: '6px', fontSize: '0.8rem', color: '#B91C1C' }}>
+                      <strong>Cancellation reason:</strong> {cancelReason}
+                    </div>
+                  )}
                   <div className="booking-card-footer">
                     <div>
                       {total != null ? (
@@ -233,14 +267,23 @@ export default function ProviderDashboard() {
                     </div>
                     <div className="booking-actions">
                       {(status === 'PENDING' || status === 'CONFIRMED') && (
-                        <button
-                          className="btn btn-success btn-sm"
-                          onClick={() => handleComplete(id)}
-                          disabled={completing === id}
-                        >
-                          <FiCheckCircle />
-                          {completing === id ? 'Completing...' : 'Mark Complete'}
-                        </button>
+                        <>
+                          <button
+                            className="btn btn-success btn-sm"
+                            onClick={() => { setCompleteModal(id); setPaymentMethod('CASH'); }}
+                            disabled={completing === id}
+                          >
+                            <FiCheckCircle />
+                            {completing === id ? 'Completing...' : 'Mark Complete'}
+                          </button>
+                          <button
+                            className="btn btn-sm"
+                            style={{ borderColor: 'var(--danger)', color: 'var(--danger)', border: '1px solid' }}
+                            onClick={() => { setCancelModal(id); setCancelReason(''); }}
+                          >
+                            <FiXCircle /> Cancel
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -251,8 +294,75 @@ export default function ProviderDashboard() {
         )}
       </div>
 
+      {/* Complete Job Modal */}
+      {completeModal && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h3 style={{ marginBottom: '0.5rem' }}>Mark Job Complete</h3>
+            <p style={{ marginBottom: '1.25rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              How did the customer pay?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginBottom: '1.5rem' }}>
+              {[['CASH', 'Cash'], ['UPI', 'UPI'], ['CREDIT_CARD', 'Credit / Debit Card']].map(([val, label]) => (
+                <label key={val} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
+                  border: paymentMethod === val ? '2px solid var(--purple-primary)' : '1px solid var(--border-subtle)',
+                  cursor: 'pointer'
+                }}>
+                  <input type="radio" checked={paymentMethod === val} onChange={() => setPaymentMethod(val)} />
+                  <span style={{ fontWeight: 500 }}>{label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => setCompleteModal(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-success btn-sm"
+                onClick={handleComplete}
+                disabled={!!completing}
+              >
+                {completing ? 'Completing…' : 'Confirm & Generate Invoice'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Booking Modal */}
+      {cancelModal && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h3 style={{ marginBottom: '0.5rem' }}>Cancel Booking</h3>
+            <p style={{ marginBottom: '1rem' }}>Please provide a reason for cancellation:</p>
+            <textarea
+              className="form-input"
+              rows={3}
+              placeholder="e.g., Unavailable on this date, Emergency..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              style={{ resize: 'vertical', marginBottom: '1rem' }}
+            />
+            <div className="modal-footer">
+              <button className="btn btn-outline btn-sm" onClick={() => { setCancelModal(null); setCancelReason(''); }}>
+                Keep Booking
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={handleCancel}
+                disabled={!cancelReason.trim() || cancelling}
+              >
+                {cancelling ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && <ErrorModal error={error} onClose={() => setError(null)} />}
-      {success && <ErrorModal success title="Job Completed!" message={success} onClose={() => setSuccess(null)} />}
+      {success && <ErrorModal success title="Done" message={success} onClose={() => setSuccess(null)} />}
     </div>
   );
 }

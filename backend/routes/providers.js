@@ -45,6 +45,10 @@ router.get('/', async (req, res) => {
              LEFT JOIN PROVIDER_AREAS pa ON sp.provider_id = pa.provider_id
              LEFT JOIN SERVICE_AREAS sa ON pa.area_id = sa.area_id
              WHERE u.is_active = 1
+               AND EXISTS (
+                   SELECT 1 FROM SERVICES_OFFERED so2
+                   WHERE so2.provider_id = sp.provider_id AND so2.is_active = 1
+               )
              GROUP BY sp.provider_id, u.username, sp.first_name, sp.last_name, sp.rating_avg, sp.jobs_completed
              ORDER BY sp.rating_avg DESC`,
             [],

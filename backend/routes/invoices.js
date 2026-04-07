@@ -11,8 +11,32 @@ router.get('/:booking_id', requireAuth, async (req, res) => {
         const bookingId = req.params.booking_id;
         connection = await db.getConnection();
 
+        // Verify caller owns this booking
+        let ownerQuery;
+        if (req.user.user_role === 'CUSTOMER') {
+            ownerQuery = await connection.execute(
+                `SELECT b.booking_id FROM BOOKINGS b
+                 JOIN CUSTOMERS c ON b.customer_id = c.customer_id
+                 WHERE b.booking_id = :1 AND c.user_id = :2`,
+                [bookingId, req.user.user_id]
+            );
+        } else if (req.user.user_role === 'PROVIDER') {
+            ownerQuery = await connection.execute(
+                `SELECT b.booking_id FROM BOOKINGS b
+                 JOIN SERVICES_OFFERED so ON b.service_id = so.service_id
+                 JOIN SERVICE_PROVIDERS sp ON so.provider_id = sp.provider_id
+                 WHERE b.booking_id = :1 AND sp.user_id = :2`,
+                [bookingId, req.user.user_id]
+            );
+        } else if (req.user.user_role !== 'ADMIN') {
+            return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
+        }
+        if (req.user.user_role !== 'ADMIN' && ownerQuery.rows.length === 0) {
+            return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Invoice not found or access denied' } });
+        }
+
         const result = await connection.execute(
-            `SELECT i.*, p.payment_id, p.transaction_id, p.amount_paid, p.payment_method, p.payment_status 
+            `SELECT i.*, p.payment_id, p.transaction_id, p.amount_paid, p.payment_method, p.payment_status
              FROM INVOICES i
              LEFT JOIN PAYMENTS p ON i.invoice_id = p.invoice_id
              WHERE i.booking_id = :1`,

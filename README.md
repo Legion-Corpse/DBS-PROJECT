@@ -1,551 +1,763 @@
-# ServeMart — Local Service Marketplace & Booking Management System
+# ServeMart — Local Service Marketplace
 
-**ServeMart** is a full-stack web application that connects customers with verified local service providers (plumbers, electricians, cleaners, painters, and more). Built as a college Database Systems mini project, it scales a pure Oracle PL/SQL database into a complete React + Express web application with three distinct role-based dashboards.
-
-> **App Name:** ServeMart  
-> **Team:** Abhyuday Gupta · Shaurya Jain · Neelaksha Sisodiya (CSE-C, Batch 2024, University)  
-> **Course:** Database Systems (DBS) Mini Project
+> A full-stack web application that connects customers with verified local service providers for home and personal services. Built as a Database Systems mini-project.
 
 ---
 
-## Team
+## Table of Contents
 
-| Name | Branch | Roll No | Enrollment No |
-|------|--------|---------|---------------|
-| Abhyuday Gupta | CSE C | 57 | 240905576 |
-| Shaurya Jain | CSE C | 60 | 240905598 |
-| Neelaksha Sisodiya | CSE C | 65 | 240905642 |
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 19 (Vite), React Router v7, Axios, react-icons, Recharts, Leaflet.js / react-leaflet |
-| **Styling** | Vanilla CSS (custom design tokens, glassmorphism, dark mode, animated orbs, shimmer loaders) |
-| **Backend** | Node.js, Express.js 4 |
-| **Database** | Oracle 21c XE running in Docker |
-| **ORM / DB Driver** | `oracledb` v6 (connection pool, bind variables only) |
-| **Auth** | JWT (`jsonwebtoken`), bcrypt password hashing |
-| **Validation** | Zod schema validation |
-| **Security** | `express-rate-limit` (general + strict auth limiter), CORS |
-| **Environment** | `dotenv` |
+1. [Project Overview](#1-project-overview)
+2. [Tech Stack](#2-tech-stack)
+3. [Architecture](#3-architecture)
+4. [Directory Structure](#4-directory-structure)
+5. [Database Schema](#5-database-schema)
+6. [PL/SQL Objects](#6-plsql-objects)
+7. [Backend API](#7-backend-api)
+8. [Frontend Pages & Components](#8-frontend-pages--components)
+9. [Authentication & Authorization](#9-authentication--authorization)
+10. [Booking Lifecycle](#10-booking-lifecycle)
+11. [Running the Project](#11-running-the-project)
+12. [Seed Data / Demo Credentials](#12-seed-data--demo-credentials)
 
 ---
 
-## Project Status: **COMPLETE** ✅
+## 1. Project Overview
 
-| Module | Status |
-|--------|--------|
-| Oracle Database schema (18 tables) | ✅ Done |
-| PL/SQL stored procedures & triggers | ✅ Done |
-| Backend Express API (6 route groups) | ✅ Done |
-| Frontend — Landing page | ✅ Done |
-| Frontend — Auth (Login / Register) | ✅ Done |
-| Frontend — Customer dashboard | ✅ Done |
-| Frontend — Provider dashboard | ✅ Done |
-| Frontend — Admin dashboard | ✅ Done |
-| Invoice modal & PDF print | ✅ Done |
-| Leaflet map (provider service areas) | ✅ Done |
-| 30-second polling for booking updates | ✅ Done |
+**ServeMart** is a three-role marketplace:
+
+| Role | What they can do |
+|------|-----------------|
+| **Customer** | Browse providers, book services, manage bookings, pay invoices, leave reviews |
+| **Provider** | Manage offered services, set weekly availability slots, manage service areas, mark jobs complete |
+| **Admin** | Approve provider background checks, add service-area cities, view revenue analytics, monitor error logs |
+
+Core business rules enforced at the database level:
+- No double-booking of a provider's time slot (overlap check in `sp_create_booking`)
+- Promo codes are validated, usage-capped, and date-bound; an invalid code silently falls through so the booking still proceeds
+- Invoices are auto-generated when a provider marks a job complete (platform fee 10%, GST 5%)
+- Cancellations automatically flip any paid payment to `REFUNDED`
+- A compound trigger recalculates `rating_avg` and `jobs_completed` on `SERVICE_PROVIDERS` whenever a review is inserted, updated, or deleted
 
 ---
 
-## Local Development Setup
+## 2. Tech Stack
 
-### Prerequisites
-- Node.js 18+
-- Oracle 21c XE in Docker (or native install)
-- Docker Desktop (to start the Oracle container)
+### Backend
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `express` | 4.19 | HTTP server & routing |
+| `oracledb` | 6.5 | Oracle Database driver (connection pool) |
+| `bcrypt` | 5.1 | Password hashing (cost factor 10) |
+| `jsonwebtoken` | 9.0 | JWT generation & verification (24 h expiry) |
+| `zod` | 3.23 | Runtime request-body validation schemas |
+| `cors` | 2.8 | Cross-Origin Resource Sharing |
+| `express-rate-limit` | 7.3 | Rate limiting — 500 req/15 min general, 20 req/15 min for auth |
+| `dotenv` | 16.4 | Environment variable loading |
 
-### 1 — Start Oracle Database
+### Frontend
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `react` | 19.2 | UI library |
+| `react-dom` | 19.2 | DOM rendering |
+| `react-router-dom` | 7.14 | Client-side routing |
+| `axios` | 1.14 | HTTP client with JWT interceptors |
+| `recharts` | 3.8 | Admin revenue bar chart |
+| `leaflet` + `react-leaflet` | 1.9 / 5.0 | Interactive map on landing page |
+| `react-icons` | 5.6 | Icon library |
+| `vite` | 8.0 | Build tool & dev server |
 
-```bash
-docker start oracleXE
+### Database
+- **Oracle Database** (XE or full edition)
+- PL/SQL stored procedures, a function, a compound trigger, and a view
+
+---
+
+## 3. Architecture
+
 ```
-
-Connect as the `marketplace` user (host: `localhost`, port: `1521`, SID: `xe`).
-
-If the schema has not been set up yet, run in order:
-```
-schema.sql     → creates all 18 tables
-init.sql       → compiles PL/SQL triggers, procedures, functions, views
-data.sql       → seeds sample data
-```
-
-### 2 — Backend
-
-```bash
-cd backend
-npm install
-node server.js        # or: npx nodemon server.js
-```
-
-The API will start on **http://localhost:3000**.
-
-### 3 — Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The React app will start on **http://localhost:5173** (Vite default).
-
-### Environment Variables (`backend/.env`)
-
-```env
-PORT=3000
-DB_USER=marketplace
-DB_PASS=market123
-DB_HOST=localhost
-DB_PORT=1521
-DB_SID=xe
-JWT_SECRET=superSecretKey999
+┌──────────────────────────────────────────────────────────┐
+│                    Browser (React + Vite)                │
+│  Axios (auto-attaches Bearer token) → REST API calls     │
+└───────────────────────────┬──────────────────────────────┘
+                            │ HTTP / JSON
+                            ▼
+┌──────────────────────────────────────────────────────────┐
+│              Node.js / Express  (port 3000)              │
+│                                                          │
+│  ┌──────────┐  ┌─────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ /auth    │  │/providers│  │/bookings │  │/invoices │  │
+│  └──────────┘  └─────────┘  └──────────┘  └──────────┘  │
+│  ┌──────────┐  ┌──────────┐                              │
+│  │ /admin   │  │ /reviews │                              │
+│  └──────────┘  └──────────┘                              │
+│                                                          │
+│  Middleware: JWT check · Zod validation · Rate limiter   │
+│  Utility:   ORA-code → human-readable error mapper       │
+└───────────────────────────┬──────────────────────────────┘
+                            │ oracledb connection pool
+                            ▼
+┌──────────────────────────────────────────────────────────┐
+│                   Oracle Database                        │
+│  16 Tables · 1 View · 3 Procedures · 1 Function          │
+│  1 Compound Trigger · Seed data                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Directory Structure
+## 4. Directory Structure
 
 ```
 DBS PROJECT/
-├── schema.sql          ← DDL: all 18 Oracle tables
-├── init.sql            ← PL/SQL: triggers, procedures, functions, views
-├── data.sql            ← Seed data for all tables
-├── queries.sql         ← Sample analytic queries
-│
+├── init.sql                    # Complete DB initialisation (schema + PL/SQL + seed data)
 ├── backend/
-│   ├── server.js       ← Express entry point, rate limiters, route mounting
-│   ├── db.js           ← Oracle connection pool (oracledb)
-│   ├── .env            ← DB credentials, JWT secret, port
-│   ├── routes/
-│   │   ├── auth.js     ← Register / Login
-│   │   ├── providers.js← Provider listings, slots, services, recommendation
-│   │   ├── bookings.js ← Create, list, complete, cancel bookings
-│   │   ├── invoices.js ← Fetch invoice, mark payment
-│   │   ├── reviews.js  ← Submit review for completed booking
-│   │   └── admin.js    ← Revenue analytics, error logs, provider approval
+│   ├── server.js               # Express app entry point; sets up middleware & routes
+│   ├── db.js                   # Oracle connection pool (poolMin 2 / poolMax 10)
+│   ├── .env                    # DB credentials + JWT_SECRET (not committed)
 │   ├── middleware/
-│   │   ├── auth.js     ← JWT verification (requireAuth)
-│   │   └── validate.js ← Zod validation factory
+│   │   ├── auth.js             # requireAuth — validates Bearer JWT, attaches req.user
+│   │   └── validate.js         # Generic Zod schema validation middleware
+│   ├── routes/
+│   │   ├── auth.js             # POST /register, POST /login
+│   │   ├── providers.js        # Provider CRUD + public browse/recommend endpoints
+│   │   ├── bookings.js         # Create / list / complete / cancel bookings
+│   │   ├── invoices.js         # Fetch invoice + trigger payment
+│   │   ├── reviews.js          # POST review for a completed booking
+│   │   └── admin.js            # Revenue stats, error logs, provider approval
 │   └── utils/
-│       └── errorMapper.js ← Translates Oracle ORA- errors to user messages
-│
+│       └── errorMapper.js      # Translates ORA-XXXXX codes to user-friendly messages
 └── frontend/
     ├── index.html
     ├── vite.config.js
     └── src/
-        ├── main.jsx          ← React root, AuthProvider wrapper
-        ├── App.jsx           ← React Router: all routes & protected routes
-        ├── api/
-        │   ├── axios.js      ← Axios instance, JWT interceptor, 401 redirect
-        │   ├── auth.js       ← login(), register()
-        │   ├── bookings.js   ← createBooking(), getMyBookings(), completeBooking(), cancelBooking()
-        │   ├── invoices.js   ← getInvoice()
-        │   ├── providers.js  ← getProviders(), getProvider(), getCategories()
-        │   └── admin.js      ← getRevenue(), getErrorLogs()
+        ├── main.jsx            # App mount, BrowserRouter, AuthProvider wrapper
+        ├── App.jsx             # Route definitions (public / customer / provider / admin)
         ├── context/
-        │   └── AuthContext.jsx ← JWT decode, login/logout, token persistence (localStorage)
+        │   └── AuthContext.jsx # JWT stored in localStorage; decodes role & expiry
+        ├── api/
+        │   ├── axios.js        # Axios instance with auth interceptor + 401 redirect
+        │   ├── auth.js         # login(), register() calls
+        │   ├── bookings.js     # createBooking(), getMyBookings(), etc.
+        │   ├── providers.js    # getProviders(), getProviderById(), recommend(), etc.
+        │   ├── invoices.js     # getInvoice(), payInvoice()
+        │   └── admin.js        # getRevenue(), getErrorLogs(), approveProvider()
         ├── components/
-        │   ├── Navbar.jsx        ← Top nav with role-aware links, logout
-        │   ├── ProtectedRoute.jsx← Role-based route guard
-        │   ├── BookingCard.jsx   ← Booking list item with actions
-        │   ├── ProviderCard.jsx  ← Provider listing card (rating, category, Book button)
-        │   ├── InvoiceModal.jsx  ← Full invoice breakdown modal with print support
-        │   ├── MapView.jsx       ← Leaflet map showing provider service areas
-        │   ├── CategoryGrid.jsx  ← Service category grid component
-        │   ├── StarRating.jsx    ← Visual star rating component
-        │   ├── LoadingSpinner.jsx← Centered loading indicator
-        │   └── ErrorModal.jsx    ← Reusable error / success modal
-        ├── pages/
-        │   ├── Landing.jsx       ← Public home page (ServeMart brand)
-        │   ├── Login.jsx         ← Login form
-        │   ├── Register.jsx      ← Multi-step registration (Customer or Provider type)
-        │   ├── customer/
-        │   │   ├── Dashboard.jsx   ← Stats, search, provider grid, quick categories
-        │   │   ├── Browse.jsx      ← Filter/search all providers + Leaflet map
-        │   │   ├── BookingForm.jsx ← 3-step wizard: Details → Payment → Success
-        │   │   ├── MyBookings.jsx  ← Status-filtered booking list, cancel, view invoice
-        │   │   └── ReviewForm.jsx  ← 1–5 star review submission for completed bookings
-        │   ├── provider/
-        │   │   ├── Dashboard.jsx   ← Tabbed booking list, Mark Complete, real-time poll
-        │   │   ├── ManageSlots.jsx ← CRUD for weekly availability slots
-        │   │   ├── ManageServices.jsx ← Add / delete services with hourly rates
-        │   │   └── JobComplete.jsx ← Confirm job completion page
-        │   └── admin/
-        │       ├── Dashboard.jsx   ← Recharts bar chart + revenue table by category
-        │       └── ErrorLogs.jsx   ← Database error log viewer with severity filters
-        └── styles/
-            ├── global.css        ← CSS custom properties, typography, utility classes,
-            │                       animations (fade-up, float orbs, shimmer, spin)
-            └── components.css    ← Navbar, cards, forms, badges, booking cards,
-                                    modals, stat cards, search bar, map container
+        │   ├── Navbar.jsx          # Role-aware navigation bar
+        │   ├── ProtectedRoute.jsx  # Redirect to /login if unauthenticated or wrong role
+        │   ├── BookingCard.jsx     # Booking summary card with status badge
+        │   ├── ProviderCard.jsx    # Provider listing card
+        │   ├── InvoiceModal.jsx    # Overlay showing full invoice breakdown
+        │   ├── CategoryGrid.jsx    # Service category icon grid on landing
+        │   ├── MapView.jsx         # Leaflet map (landing page)
+        │   ├── StarRating.jsx      # Interactive 1-5 star rater
+        │   ├── ErrorModal.jsx      # Standardised error display overlay
+        │   └── LoadingSpinner.jsx  # Centred spinner
+        └── pages/
+            ├── Landing.jsx         # Public hero page with category grid + Leaflet map
+            ├── Login.jsx           # Username + password form
+            ├── Register.jsx        # Role-specific registration (CUSTOMER or PROVIDER)
+            ├── customer/
+            │   ├── Dashboard.jsx   # Recent bookings, recommended providers for location
+            │   ├── Browse.jsx      # Search/filter provider listing
+            │   ├── BookingForm.jsx # Multi-step: pick service → slot → address → promo
+            │   ├── MyBookings.jsx  # Full booking history with status + invoice view
+            │   └── ReviewForm.jsx  # 1-5 star + text review for a completed booking
+            ├── provider/
+            │   ├── Dashboard.jsx   # Pending/upcoming jobs, earnings summary
+            │   ├── ManageSlots.jsx # Add / delete weekly availability time slots
+            │   ├── ManageServices.jsx # Add / delete offered services & hourly rates
+            │   ├── ManageAreas.jsx # Add / remove service cities
+            │   └── JobComplete.jsx # Mark a booking complete, choose payment method
+            └── admin/
+                ├── Dashboard.jsx   # Revenue breakdown bar chart by category (Recharts)
+                ├── Providers.jsx   # List all providers; one-click background-check approval
+                └── ErrorLogs.jsx   # Table of all PL/SQL error log entries
 ```
 
 ---
 
-## Database Architecture
+## 5. Database Schema
 
-**18 tables** across 5 logical layers.
+The schema contains **16 tables** created in foreign-key dependency order.
 
----
+### Table Reference
 
-### Layer 1 — User Identity
+#### `ERROR_LOGS`
+Central error table. Every PL/SQL procedure uses `EXCEPTION WHEN OTHERS` to insert here before re-raising.
 
-| Table | Purpose | Key Attributes |
-|---|---|---|
-| `USERS` | Central auth record for all roles | `user_id` PK, `username`, `email`, `user_role` (CUSTOMER/PROVIDER/ADMIN), `is_active` |
-| `CUSTOMERS` | Customer profile (1:1 with USERS) | `customer_id` PK, `user_id` FK, `first_name`, `last_name`, `phone` |
-| `SERVICE_PROVIDERS` | Provider profile (1:1 with USERS) | `provider_id` PK, `user_id` FK, `rating_avg`, `jobs_completed`, `background_chk`, `experience_yrs` |
-
----
-
-### Layer 2 — Service & Availability
-
-| Table | Purpose | Key Attributes |
-|---|---|---|
-| `SERVICE_CATEGORIES` | Lookup table for service types | `category_id` PK, `category_name` |
-| `SERVICES_OFFERED` | Services a provider lists | `service_id` PK, `provider_id` FK, `category_id` FK, `service_name`, `hourly_rate`, `is_active` |
-| `PROVIDER_AVAILABILITY` | Provider's open time windows | `availability_id` PK, `provider_id` FK, `day_of_week`, `slot_start`, `slot_end`, `is_available` |
-| `SERVICE_AREAS` | Geographic service zones | `area_id` PK, `city_name`, `region_code` |
-| `PROVIDER_AREAS` | M:N junction — which providers serve which areas | `provider_area_id` PK, `provider_id` FK, `area_id` FK |
+| Column | Type | Notes |
+|--------|------|-------|
+| `log_id` | NUMBER (identity PK) | Auto-generated |
+| `severity` | VARCHAR2(10) | `LOW` / `MEDIUM` / `HIGH` / `CRITICAL` |
+| `procedure_name` | VARCHAR2(100) | Which PL/SQL object raised the error |
+| `error_message` | VARCHAR2(2000) | `SQLERRM` text |
+| `logged_at` | TIMESTAMP | Defaults to `CURRENT_TIMESTAMP` |
 
 ---
 
-### Layer 3 — Bookings & Addresses
+#### `USERS`
+Single authentication table for all roles.
 
-| Table | Purpose | Key Attributes |
-|---|---|---|
-| `CUSTOMER_ADDRESSES` | Saved delivery addresses per customer | `address_id` PK, `customer_id` FK, `house_no`, `area_landmark`, `city`, `postal_code` (NUMBER) |
-| `PROMOTIONS` | Discount codes | `promo_id` PK, `promo_code`, `discount_percentage`, `max_discount_amt`, `min_order_amt`, `valid_from/until`, `max_uses` |
-| `BOOKINGS` | Core transaction record | `booking_id` PK, `customer_id` FK, `service_id` FK, `address_id` FK, `availability_id` FK, `promo_id` FK (nullable), `scheduled_date`, `duration_hours`, `status` |
-
-`BOOKINGS.status` lifecycle: `PENDING` → `CONFIRMED` → `IN_PROGRESS` → `COMPLETED` / `CANCELLED`
-
----
-
-### Layer 4 — Financials
-
-| Table | Purpose | Key Attributes |
-|---|---|---|
-| `INVOICES` | Generated when booking completes | `invoice_id` PK, `booking_id` FK (1:1), `base_amount`, `discount_amount`, `platform_fee`, `tax_amount`, `net_total` |
-| `PAYMENTS` | Payment record per invoice | `payment_id` PK, `invoice_id` FK (1:1), `amount_paid`, `payment_method` (CASH/UPI/etc.), `payment_status`, `transaction_id` |
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | NUMBER (identity PK) | |
+| `username` | VARCHAR2(50) UNIQUE | |
+| `password_hash` | VARCHAR2(256) | bcrypt hash |
+| `email` | VARCHAR2(100) UNIQUE | |
+| `user_role` | VARCHAR2(20) | `CUSTOMER` / `PROVIDER` / `ADMIN` |
+| `is_active` | NUMBER(1,0) | 0 = deactivated, 1 = active (default) |
+| `last_login` | TIMESTAMP | Updated on each successful login |
+| `created_at` | TIMESTAMP | Defaults to `CURRENT_TIMESTAMP` |
 
 ---
 
-### Layer 5 — Post-Booking & System
+#### `CUSTOMERS`
+Profile extension for users with role `CUSTOMER`.
 
-| Table | Purpose | Key Attributes |
-|---|---|---|
-| `REVIEWS` | 1:1 with booking, rating 1–5 | `review_id` PK, `booking_id` FK, `rating`, `comments` |
-| `CANCELLATIONS` | Records who cancelled and why | `cancellation_id` PK, `booking_id` FK, `cancelled_by` (CUSTOMER/PROVIDER/SYSTEM), `reason` |
-| `SUPPORT_TICKETS` | User-raised issues, optionally linked to a booking | `ticket_id` PK, `user_id` FK, `booking_id` FK (nullable), `subject`, `status` |
-| `PLATFORM_FEEDBACK` | General app feedback from any user | `feedback_id` PK, `user_id` FK, `rating`, `comments` |
-| `ERROR_LOGS` | PL/SQL procedure error capture | `log_id` PK, `severity`, `procedure_name`, `error_message` |
-
----
-
-### Key Design Decisions
-
-- **Single `USERS` table** with `user_role` discriminator; `CUSTOMERS` and `SERVICE_PROVIDERS` are separate profile tables linked 1:1
-- **`BOOKINGS` is the hub** — 6 foreign keys converge on it (customer, service, address, availability, promo) and it spawns invoice, review, and cancellation records
-- **Payment is backend-automated** — created automatically when a provider marks a booking complete, not customer-initiated
-- **`postal_code` is `NUMBER(10)`** — not VARCHAR; null is not accepted
-- **All primary keys** use `NUMBER GENERATED ALWAYS AS IDENTITY` (no separate sequences)
+| Column | Type | Notes |
+|--------|------|-------|
+| `customer_id` | NUMBER (identity PK) | |
+| `user_id` | NUMBER UNIQUE | FK → `USERS` (cascade delete) |
+| `first_name` | VARCHAR2(50) | |
+| `last_name` | VARCHAR2(50) | |
+| `phone` | VARCHAR2(20) | Optional |
 
 ---
 
-## PL/SQL Objects
+#### `CUSTOMER_ADDRESSES`
+A customer can save multiple addresses (home, office, etc.).
 
-### Trigger
-**`trg_update_provider_rating`** — Fires `AFTER INSERT OR UPDATE OR DELETE` on `REVIEWS`. Automatically recalculates `rating_avg` (AVG of all ratings) and `jobs_completed` (COUNT of linked completed bookings) on `SERVICE_PROVIDERS`. Ensures provider stats are always consistent.
+| Column | Type | Notes |
+|--------|------|-------|
+| `address_id` | NUMBER (identity PK) | |
+| `customer_id` | NUMBER | FK → `CUSTOMERS` (cascade delete) |
+| `location_label` | VARCHAR2(50) | Defaults to `'HOME'` |
+| `house_no` | VARCHAR2(50) | |
+| `building_name` | VARCHAR2(150) | Optional |
+| `area_landmark` | VARCHAR2(255) | |
+| `city` | VARCHAR2(100) | |
+| `postal_code` | NUMBER(10) | |
 
-### Functions
-**`fn_recommend_providers(p_area_id)`** — Returns a `SYS_REFCURSOR` of providers in the given area, ranked by a composite score:
+---
+
+#### `SERVICE_PROVIDERS`
+Profile extension for users with role `PROVIDER`. Stats (`rating_avg`, `jobs_completed`) are maintained automatically by the compound trigger.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `provider_id` | NUMBER (identity PK) | |
+| `user_id` | NUMBER UNIQUE | FK → `USERS` (cascade delete) |
+| `first_name` | VARCHAR2(50) | |
+| `last_name` | VARCHAR2(50) | |
+| `phone` | VARCHAR2(20) | |
+| `experience_yrs` | NUMBER | Defaults 0 |
+| `background_chk` | VARCHAR2(20) | `PENDING` / `APPROVED` / `REJECTED` |
+| `rating_avg` | NUMBER(3,2) | Auto-updated by trigger |
+| `jobs_completed` | NUMBER | Auto-updated by trigger |
+
+---
+
+#### `SERVICE_AREAS`
+Master list of cities the platform operates in.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `area_id` | NUMBER (identity PK) | |
+| `city_name` | VARCHAR2(100) | |
+| `region_code` | VARCHAR2(50) | State/UT abbreviation (e.g. `MH`, `KA`) |
+| *(unique)* | | `(city_name, region_code)` |
+
+---
+
+#### `PROVIDER_AREAS`
+Many-to-many: which cities a provider serves.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `provider_area_id` | NUMBER (identity PK) | |
+| `provider_id` | NUMBER | FK → `SERVICE_PROVIDERS` |
+| `area_id` | NUMBER | FK → `SERVICE_AREAS` |
+| *(unique)* | | `(provider_id, area_id)` — prevents duplicates |
+
+---
+
+#### `PROVIDER_AVAILABILITY`
+Weekly recurring time slots (stored with a sentinel date `2000-01-01`; only the HH24:MI portion matters at runtime).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `availability_id` | NUMBER (identity PK) | |
+| `provider_id` | NUMBER | FK → `SERVICE_PROVIDERS` |
+| `day_of_week` | VARCHAR2(15) | `MONDAY` … `SUNDAY` |
+| `slot_start` | DATE | Time stored on `2000-01-01 HH24:MI` |
+| `slot_end` | DATE | Must be > `slot_start` |
+| `is_available` | NUMBER(1,0) | 1 = open, 0 = blocked by a booking |
+
+---
+
+#### `SERVICE_CATEGORIES`
+Lookup table for service types (seeded: `PLUMBING`, `ELECTRICAL`, `CLEANING`, `PAINTING`, `CARPENTRY`, `APPLIANCE REPAIR`).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `category_id` | NUMBER (identity PK) | |
+| `category_name` | VARCHAR2(100) UNIQUE | |
+
+---
+
+#### `SERVICES_OFFERED`
+Each row is one service a provider offers with a specific hourly rate.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `service_id` | NUMBER (identity PK) | |
+| `provider_id` | NUMBER | FK → `SERVICE_PROVIDERS` |
+| `category_id` | NUMBER | FK → `SERVICE_CATEGORIES` |
+| `service_name` | VARCHAR2(100) | e.g. "Pipe Leak Fix" |
+| `hourly_rate` | NUMBER(10,2) | Must be ≥ 0 |
+| `is_active` | NUMBER(1,0) | 1 = listed, 0 = hidden |
+
+---
+
+#### `PROMOTIONS`
+Discount codes with usage caps and validity windows.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `promo_id` | NUMBER (identity PK) | |
+| `promo_code` | VARCHAR2(20) UNIQUE | Case-insensitive match at runtime |
+| `discount_percentage` | NUMBER(3,0) | 1–100 |
+| `max_discount_amt` | NUMBER(10,2) | Cap on the discount ₹ amount |
+| `min_order_amt` | NUMBER(10,2) | Order must meet this minimum |
+| `valid_from` | TIMESTAMP | Defaults to now |
+| `valid_until` | TIMESTAMP | Must be > `valid_from` |
+| `max_uses` | NUMBER | Total redemptions allowed |
+| `current_uses` | NUMBER | Incremented in `sp_create_booking` |
+| `is_active` | NUMBER(1,0) | Toggle |
+
+---
+
+#### `BOOKINGS`
+The central transaction table.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `booking_id` | NUMBER (identity PK) | |
+| `customer_id` | NUMBER | FK → `CUSTOMERS` |
+| `service_id` | NUMBER | FK → `SERVICES_OFFERED` |
+| `address_id` | NUMBER | FK → `CUSTOMER_ADDRESSES` |
+| `availability_id` | NUMBER | FK → `PROVIDER_AVAILABILITY` |
+| `promo_id` | NUMBER (nullable) | FK → `PROMOTIONS` (set null on delete) |
+| `scheduled_date` | TIMESTAMP | Exact start date-time |
+| `duration_hours` | NUMBER(4,1) | Length in hours |
+| `status` | VARCHAR2(20) | `PENDING` / `CONFIRMED` / `IN_PROGRESS` / `COMPLETED` / `CANCELLED` |
+| `created_at` | TIMESTAMP | |
+
+---
+
+#### `INVOICES`
+One invoice per booking, generated by `sp_generate_invoice`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `invoice_id` | NUMBER (identity PK) | |
+| `booking_id` | NUMBER UNIQUE | FK → `BOOKINGS` (1-to-1) |
+| `base_amount` | NUMBER(10,2) | `hourly_rate × duration_hours` |
+| `discount_amount` | NUMBER(10,2) | Promo discount (capped at `max_discount_amt`) |
+| `platform_fee` | NUMBER(10,2) | 10% of post-discount amount |
+| `tax_amount` | NUMBER(10,2) | 5% GST of post-discount amount |
+| `net_total` | NUMBER(10,2) | `(base − discount) + fee + tax` |
+| `generated_at` | TIMESTAMP | |
+
+---
+
+#### `PAYMENTS`
+One payment record per invoice.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `payment_id` | NUMBER (identity PK) | |
+| `invoice_id` | NUMBER UNIQUE | FK → `INVOICES` |
+| `amount_paid` | NUMBER(10,2) | |
+| `payment_method` | VARCHAR2(50) | `CASH` / `CREDIT_CARD` / `UPI` / `STRIPE` |
+| `payment_status` | VARCHAR2(20) | `PENDING` / `SUCCESS` / `COMPLETED` / `FAILED` / `REFUNDED` |
+| `transaction_id` | VARCHAR2(100) | Auto-generated as `TXN_<timestamp>` |
+| `paid_at` | TIMESTAMP | |
+
+---
+
+#### `REVIEWS`
+One review per completed booking (enforced by UNIQUE on `booking_id`).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `review_id` | NUMBER (identity PK) | |
+| `booking_id` | NUMBER UNIQUE | FK → `BOOKINGS` |
+| `rating` | NUMBER(1,0) | 1–5 |
+| `comments` | VARCHAR2(1000) | |
+| `created_at` | TIMESTAMP | |
+
+Writing a review fires the `trg_update_provider_rating` trigger.
+
+---
+
+#### `CANCELLATIONS`
+Audit table; one row per cancelled booking.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `cancellation_id` | NUMBER (identity PK) | |
+| `booking_id` | NUMBER UNIQUE | FK → `BOOKINGS` |
+| `cancelled_by` | VARCHAR2(10) | `CUSTOMER` / `PROVIDER` / `SYSTEM` |
+| `reason` | VARCHAR2(500) | Free text |
+| `cancelled_at` | TIMESTAMP | |
+
+---
+
+## 6. PL/SQL Objects
+
+### View — `VW_PROVIDER_SUMMARY`
+Used by the provider detail endpoint. Joins `SERVICE_PROVIDERS` ↔ `USERS`, selects the one active category name per provider using a correlated subquery, and filters out deactivated accounts.
+
+---
+
+### Procedure — `SP_CREATE_BOOKING`
+
+**Parameters:** `p_cust_id`, `p_srvc_id`, `p_addr_id`, `p_avail_id`, `p_promo_code`, `p_date`, `p_dur`
+
+**Logic steps:**
+1. Resolve `provider_id` from `SERVICES_OFFERED`
+2. Fetch the availability slot's absolute time range for the requested date (`TRUNC(p_date) + HH24:MI fraction`)
+3. Reject if `p_date` falls outside the window → `ORA-20011`
+4. Count overlapping active bookings for that provider → reject if > 0 → `ORA-20010`
+5. Validate promo code (active, not expired, not over max uses); silently ignore if invalid so the booking proceeds; increment `current_uses` on success
+6. `INSERT` into `BOOKINGS` with status `CONFIRMED`
+7. Any exception → `ROLLBACK`, log to `ERROR_LOGS`, then `RAISE`
+
+---
+
+### Procedure — `SP_GENERATE_INVOICE`
+
+**Parameter:** `p_booking_id`
+
+**Logic steps:**
+1. Fetch `hourly_rate` and `duration_hours`; compute `base_amount`
+2. Loop over the booking's promo (if any) and compute `discount_amount = MIN(base × pct/100, max_discount_amt)`
+3. `platform_fee = ROUND((base − discount) × 0.10, 2)`
+4. `tax_amount  = ROUND((base − discount) × 0.05, 2)`
+5. `net_total   = ROUND((base − discount) + fee + tax, 2)`
+6. `INSERT` into `INVOICES`
+
+Called automatically by the *complete booking* endpoint immediately after the status is set to `COMPLETED`.
+
+---
+
+### Procedure — `SP_CANCEL_BOOKING`
+
+**Parameters:** `p_booking_id`, `p_cancelled_by`, `p_reason`
+
+**Logic steps:**
+1. Fetch current status; reject if `COMPLETED` → `ORA-20020` or already `CANCELLED` → `ORA-20021`
+2. Update status → `CANCELLED`
+3. Re-open the availability slot (`is_available = 1`)
+4. Insert into `CANCELLATIONS`
+5. If a `SUCCESS`/`COMPLETED` payment exists, set it to `REFUNDED`
+
+---
+
+### Function — `FN_RECOMMEND_PROVIDERS`
+
+**Parameter:** `p_area_id`  
+**Returns:** `SYS_REFCURSOR`
+
+Ranks providers in a given city using a composite score:
 ```
 score = (rating_avg × 0.5) + (LEAST(jobs_completed, 100) / 100 × 0.3) + 0.2
 ```
-
-### Stored Procedures
-| Procedure | What it does |
-|-----------|-------------|
-| `sp_create_booking(cust_id, srvc_id, addr_id, avail_id, promo_code, date, dur)` | Locks the availability slot using `SELECT FOR UPDATE`, validates promo code, inserts booking |
-| `sp_generate_invoice(booking_id)` | Calculates base amount, applies promo discount, adds 10% platform fee + 5% tax, inserts into `INVOICES` |
-| `sp_cancel_booking(booking_id, cancelled_by, reason)` | Cancels the booking, restores the availability slot (`is_available = 1`), logs to `CANCELLATIONS`, handles payment refund/fail states |
-
-### View
-**`vw_provider_summary`** — Joins `SERVICE_PROVIDERS`, `USERS`, `SERVICES_OFFERED`, `SERVICE_CATEGORIES` to return `provider_id`, `username`, `full_name`, `category_name`, `rating_avg`, `jobs_completed` — the backbone of all provider listing queries.
+- The 0.2 baseline ensures brand-new providers still appear in results
+- Capping `jobs_completed` at 100 prevents highly experienced providers from monopolising rankings
+- Only `APPROVED` providers with active accounts are returned
 
 ---
 
-## Backend API Reference
+### Trigger — `TRG_UPDATE_PROVIDER_RATING`
 
-**Base URL:** `http://localhost:3000`
+**Type:** `COMPOUND TRIGGER FOR INSERT OR UPDATE OR DELETE ON REVIEWS`
 
-All responses follow this contract:
-```json
-// Success
-{ "success": true, "data": { ... } }
+- **AFTER EACH ROW**: collects the affected `provider_id` into an associative array (`INDEX BY PLS_INTEGER`)
+- **AFTER STATEMENT**: iterates the array, and for each provider updates `SERVICE_PROVIDERS` with:
+  - `rating_avg` ← `AVG(rating)` across all reviews joined to that provider's bookings
+  - `jobs_completed` ← `COUNT(DISTINCT booking_id WHERE status = 'COMPLETED')`
 
-// Error
-{ "success": false, "error": { "code": "ERROR_CODE", "message": "Human-friendly message" } }
-```
-
-### Auth Routes (`/api/auth`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/auth/register` | Public | Register as CUSTOMER or PROVIDER. Inserts into USERS + role table in one transaction. Bcrypt hashes password. |
-| POST | `/api/auth/login` | Public | Validates credentials, checks `is_active`, returns 24h JWT containing `user_id`, `username`, `user_role`. Updates `last_login`. |
-
-**Zod schemas enforced:**
-- Register: `username` (min 3), `password` (min 6), `email`, `role` (CUSTOMER/PROVIDER), `firstName`, `lastName`, `phone?`
-- Login: `username`, `password`
-
-**Rate limiting:** Auth endpoints are protected by a separate, stricter limiter (20 req / 15 min) to prevent brute-force.
+Using a compound trigger avoids the "mutating table" error that a row-level trigger would cause.
 
 ---
 
-### Provider Routes (`/api/providers`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/providers` | Public | All providers via `vw_provider_summary` |
-| GET | `/api/providers/categories` | Public | All service categories |
-| GET | `/api/providers/recommend/:area_id` | Public | Calls `fn_recommend_providers` — returns ranked providers for a given area |
-| GET | `/api/providers/:id` | Public | Single provider: profile + availability + service areas + active services |
-| GET | `/api/providers/my/slots` | PROVIDER | List the calling provider's availability slots |
-| POST | `/api/providers/my/slots` | PROVIDER | Add a new weekly availability slot |
-| DELETE | `/api/providers/my/slots/:slotId` | PROVIDER | Remove an availability slot |
-| GET | `/api/providers/my/services` | PROVIDER | List the calling provider's offered services |
-| POST | `/api/providers/my/services` | PROVIDER | Add a new service with category and hourly rate |
-| DELETE | `/api/providers/my/services/:serviceId` | PROVIDER | Remove a service |
+## 7. Backend API
+
+Base URL: `http://localhost:3000/api`
+
+### Auth — `/api/auth`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/register` | Public | Creates `USERS` + `CUSTOMERS` or `SERVICE_PROVIDERS` row atomically |
+| POST | `/login` | Public | Verifies bcrypt hash; returns 24 h JWT; updates `last_login` |
+
+Zod schemas enforce minimum lengths and valid email format before the DB is touched.
 
 ---
 
-### Booking Routes (`/api/bookings`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/bookings/create` | CUSTOMER | Creates a booking via `sp_create_booking`. If no `addressId`, inserts a new address on the fly. Handles `ORA-20010` (slot occupied) and `ORA-20011` (out of range) errors gracefully. |
-| GET | `/api/bookings/my` | CUSTOMER or PROVIDER | Returns bookings scoped to the caller's role. Joins BOOKINGS, SERVICES_OFFERED, SERVICE_PROVIDERS, CUSTOMERS, CUSTOMER_ADDRESSES, INVOICES, PAYMENTS. |
-| GET | `/api/bookings/booked-slots/:providerId` | Public | Returns booked time ranges for a provider (used to disable slots in the booking wizard UI). |
-| POST | `/api/bookings/complete/:id` | PROVIDER | Sets status to COMPLETED, then calls `sp_generate_invoice`. |
-| POST | `/api/bookings/cancel/:id` | CUSTOMER or PROVIDER | Calls `sp_cancel_booking` with reason and caller role. |
+### Providers — `/api/providers`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | Public | List all active providers with cities (LISTAGG) sorted by rating |
+| GET | `/categories` | Public | All service categories |
+| GET | `/areas` | Public | All service areas (cities) |
+| GET | `/recommend/:area_id` | Public | Calls `FN_RECOMMEND_PROVIDERS` via `SYS_REFCURSOR` |
+| GET | `/:id` | Public | Provider detail + availability + areas + services (uses `VW_PROVIDER_SUMMARY`) |
+| GET | `/my/areas` | Provider | Provider's own service areas |
+| POST | `/my/areas` | Provider | Add a service area |
+| DELETE | `/my/areas/:areaId` | Provider | Remove a service area |
+| GET | `/my/slots` | Provider | Own availability slots |
+| POST | `/my/slots` | Provider | Add a weekly slot |
+| DELETE | `/my/slots/:slotId` | Provider | Delete a slot |
+| GET | `/my/services` | Provider | Own offered services |
+| POST | `/my/services` | Provider | Add a service |
+| DELETE | `/my/services/:serviceId` | Provider | Delete a service |
 
 ---
 
-### Invoice Routes (`/api/invoices`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/invoices/:booking_id` | Any (auth required) | Fetches invoice + payment details for a booking. |
-| POST | `/api/invoices/:booking_id/pay` | Any (auth required) | Records payment as SUCCESS. Creates a new PAYMENTS row or updates existing one. Generates a `TXN_<timestamp>` transaction ID. |
+### Bookings — `/api/bookings`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/create` | Customer | Calls `SP_CREATE_BOOKING`; auto-creates address if none given |
+| GET | `/my` | Customer / Provider | Booking history (role-filtered) |
+| GET | `/booked-slots/:providerId` | Public | Returns occupied time ranges for calendar blocking |
+| GET | `/validate-promo` | Auth | Preview promo discount before booking |
+| GET | `/my-city` | Customer | Auto-detects last-used city for recommendations |
+| POST | `/complete/:id` | Provider | Sets `COMPLETED`, calls `SP_GENERATE_INVOICE`, creates payment |
+| POST | `/cancel/:id` | Customer / Provider | Calls `SP_CANCEL_BOOKING` with ownership check |
 
 ---
 
-### Reviews Routes (`/api/reviews`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/reviews/:booking_id` | CUSTOMER | Submits a 1–5 star review + comment, only for COMPLETED bookings belonging to the caller. Unique constraint prevents double-reviews. `trg_update_provider_rating` fires on insert and updates provider stats automatically. |
+### Invoices — `/api/invoices`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/:booking_id` | Customer / Provider / Admin | Invoice + payment detail; ownership verified |
+| POST | `/:booking_id/pay` | Auth | Upserts payment record to `SUCCESS` |
 
 ---
 
-### Admin Routes (`/api/admin`)
-All endpoints require `ADMIN` role.
+### Reviews — `/api/reviews`
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/admin/revenue` | Revenue report: platform fee + gross value grouped by service category (completed bookings only) |
-| GET | `/api/admin/error-logs` | All ERROR_LOGS entries ordered by timestamp descending |
-| GET | `/api/admin/providers` | All providers with background check status |
-| POST | `/api/admin/providers/:id/approve` | Sets `background_chk = 'APPROVED'` for a provider |
-
-### Support Routes (`/api/support`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/support` | Customer/Provider | Submit a support ticket, optionally linked to a booking |
-| GET | `/api/support/my` | Customer/Provider | List own tickets ordered by date |
-| GET | `/api/support/admin` | Admin | All tickets ordered by status priority then date |
-| PATCH | `/api/support/:id/status` | Admin | Advance ticket status: OPEN → IN_PROGRESS → RESOLVED → CLOSED |
-
-### Feedback Routes (`/api/feedback`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/feedback` | Customer/Provider | Submit platform feedback with 1–5 star rating |
-| GET | `/api/feedback/admin` | Admin | All feedback with aggregate stats (avg rating, response count, positive count) |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/:booking_id` | Customer | Inserts review (1–5 stars + comment); must be `COMPLETED` booking owned by caller |
 
 ---
 
-## Backend Middleware & Utilities
+### Admin — `/api/admin`
 
-### `middleware/auth.js` — JWT Guard
-Reads `Authorization: Bearer <token>`, verifies with `JWT_SECRET`, attaches `req.user = { user_id, username, user_role }`. Returns 401 on missing/invalid token.
-
-### `middleware/validate.js` — Zod Validation Factory
-Higher-order function that wraps a Zod schema. On failure, returns 400 with an array of validation errors.
-
-### `utils/errorMapper.js` — Oracle Error Translator
-Maps raw `ORA-XXXXX` codes to user-friendly messages:
-| Oracle Code | Meaning | Shown as |
-|-------------|---------|---------|
-| ORA-00001 | Unique constraint violated | "This information already exists (e.g., username or email)" |
-| ORA-02291 | Foreign key not found | "Selection is invalid. Please ensure all related records exist." |
-| ORA-02290 | Check constraint failed | "Information does not meet required format" |
-| ORA-01722 | Invalid number | "Invalid numeric format. Please check your inputs." |
-| ORA-01843/01861 | Invalid date | "Invalid date format. Please use the date picker." |
-| ORA-00904 | Invalid column name | "Technical configuration issue. Contact support." |
-
-### `db.js` — Connection Pool
-Creates an `oracledb` connection pool on server startup (`poolMin=2`, `poolMax=10`, `poolIncrement=2`). Exposes `initializePool()` and `getConnection()`. All routes acquire a connection, use it, and always release it in a `finally` block.
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/revenue` | Admin | Revenue grouped by category (fees, gross) for completed bookings |
+| GET | `/error-logs` | Admin | All `ERROR_LOGS` rows, newest first |
+| GET | `/providers` | Admin | All providers with background-check status |
+| POST | `/providers/:id/approve` | Admin | Sets `background_chk = 'APPROVED'` |
+| POST | `/areas` | Admin | Adds a new city to `SERVICE_AREAS` |
 
 ---
 
-## Frontend Architecture
-
-### Authentication Flow (`AuthContext.jsx`)
-- JWT stored in `localStorage` under key `marketplace_token`
-- On app load, the token is decoded client-side (base64 `atob`) and expiry is checked
-- `login(token)` — stores token, decodes payload, updates `user` state
-- `logout()` — clears storage, nulls state
-- `getToken()` — returns raw token for Axios interceptor
-
-### Axios Instance (`api/axios.js`)
-- Base URL: `http://localhost:3000`
-- **Request interceptor**: attaches `Authorization: Bearer <token>` if token exists in localStorage
-- **Response interceptor**: on 401, auto-clears token and redirects to `/login`
-
-### Routing (`App.jsx`)
-All routes go through `<ProtectedRoute allowedRoles={[...]}>` which redirects unauthenticated users to `/login` and wrong-role users to `/`.
-
-| Route | Component | Access |
-|-------|-----------|--------|
-| `/` | Landing | Public |
-| `/login` | Login | Public |
-| `/register/customer` | Register (CUSTOMER) | Public |
-| `/register/provider` | Register (PROVIDER) | Public |
-| `/customer/dashboard` | CustomerDashboard | CUSTOMER |
-| `/customer/browse` | Browse | CUSTOMER |
-| `/customer/book/:providerId` | BookingForm | CUSTOMER |
-| `/customer/bookings` | MyBookings | CUSTOMER |
-| `/customer/review/:bookingId` | ReviewForm | CUSTOMER |
-| `/provider/dashboard` | ProviderDashboard | PROVIDER |
-| `/provider/slots` | ManageSlots | PROVIDER |
-| `/provider/services` | ManageServices | PROVIDER |
-| `/provider/complete/:bookingId` | JobComplete | PROVIDER |
-| `/admin/dashboard` | AdminDashboard | ADMIN |
-| `/admin/errors` | ErrorLogs | ADMIN |
-
----
-
-## Page & Component Reference
+## 8. Frontend Pages & Components
 
 ### Public Pages
 
-**`Landing.jsx`** — ServeMart marketing page with:
-- Animated hero with floating gradient orbs + CSS grid overlay
-- Typewriter headline cycling through service types (Plumber, Electrician, Cleaner, Painter, Handyman)
-- Service category pill grid (6 categories with hover glow effects)
-- Live provider preview fetched from API (up to 6 cards) with shimmer loader
-- "How it Works" 3-step section
-- Provider recruitment CTA banner
-- Footer with team attribution
-
-**`Login.jsx`** — Username + password form. JWT stored on success, role-based redirect.
-
-**`Register.jsx`** — Shared component for both roles. Fields adapt based on `type` prop (`CUSTOMER` or `PROVIDER`). Handles conflict (duplicate username/email) error display.
+| Page | Path | Description |
+|------|------|-------------|
+| `Landing` | `/` | Hero section, animated category grid, Leaflet map showing service cities, CTA buttons |
+| `Login` | `/login` | Username + password login form |
+| `Register` | `/register/customer` `/register/provider` | Role-specific registration; shared component driven by `type` prop |
 
 ### Customer Pages
 
-**`Dashboard.jsx`** — Personalized greeting, 3 stat cards (upcoming bookings, completed, available providers), quick category shortcuts, searchable provider grid.
-
-**`Browse.jsx`** — Full provider directory with search + category filter, Leaflet map showing provider service areas.
-
-**`BookingForm.jsx`** — 3-step booking wizard:
-1. **Details**: Service selector, address entry, availability range picker, date picker (next 4 matching dates), 3-hour time slot grid (greyed-out booked slots fetched from `/api/bookings/booked-slots`)
-2. **Payment**: CASH / UPI / CREDIT_CARD selection (simulated confirmation)
-3. **Success**: Confirmation screen with redirect to My Bookings
-
-**`MyBookings.jsx`** — Status-filtered booking list (ALL / PENDING / CONFIRMED / COMPLETED / CANCELLED). Per-booking actions: View Invoice (opens `InvoiceModal`), Cancel (modal with reason), Leave Review. Polling every 30 seconds.
-
-**`ReviewForm.jsx`** — Star rating + comment form for completed bookings.
+| Page | Path | Description |
+|------|------|-------------|
+| `Dashboard` | `/customer/dashboard` | Greeting, quick stats, recommended providers auto-detected by last booking city |
+| `Browse` | `/customer/browse` | Provider cards with search/filter; links to booking |
+| `BookingForm` | `/customer/book/:providerId` | Loads provider services, availability slots, and booked-slots from API; promo code validation; new-address form; submits to `SP_CREATE_BOOKING` |
+| `MyBookings` | `/customer/bookings` | Full history with status badges, invoice modal, cancel button, review link for completed jobs |
+| `ReviewForm` | `/customer/review/:bookingId` | Interactive star rater + text comment; one review per booking enforced by DB UNIQUE constraint |
 
 ### Provider Pages
 
-**`Dashboard.jsx`** — Booking list with tab filters, stat cards (Pending / Confirmed / Completed counts), "Mark Complete" button that calls `completeBooking()` → triggers `sp_generate_invoice`. Polling every 30 seconds.
-
-**`ManageSlots.jsx`** — View weekly availability grid (card per slot with Available/Booked indicator). Form to add new slots (day of week + time range). Delete available slots.
-
-**`ManageServices.jsx`** — List offered services. Add service (category, name, hourly rate). Delete services.
-
-**`JobComplete.jsx`** — Confirmation page for completing a specific booking by ID.
+| Page | Path | Description |
+|------|------|-------------|
+| `Dashboard` | `/provider/dashboard` | Upcoming + pending jobs, monthly earnings summary |
+| `ManageSlots` | `/provider/slots` | Weekly slot grid; add/delete availability windows |
+| `ManageServices` | `/provider/services` | List services; add new (category + name + hourly rate); delete |
+| `ManageAreas` | `/provider/areas` | Add/remove cities the provider covers |
+| `JobComplete` | `/provider/complete/:bookingId` | Confirm job done, select payment method; triggers invoice generation |
 
 ### Admin Pages
 
-**`Dashboard.jsx`** — 4 stat cards (Platform Revenue, Gross Value, Completed Bookings, Active Categories). Recharts `BarChart` with dual bars (Platform Fee + Gross Value) per category. Category breakdown table with average per booking.
+| Page | Path | Description |
+|------|------|-------------|
+| `Dashboard` | `/admin/dashboard` | Recharts bar chart of platform revenue and booking counts by service category |
+| `Providers` | `/admin/providers` | Full provider list with background-check status; one-click approval |
+| `ErrorLogs` | `/admin/errors` | Timestamped table of all PL/SQL errors with severity colour coding |
 
-**`ErrorLogs.jsx`** — Searchable error log list. Cards with left-border color-coded by severity (CRITICAL=purple, HIGH=red, MEDIUM=amber). Click to expand context info.
-
-### Reusable Components
+### Shared Components
 
 | Component | Description |
 |-----------|-------------|
-| `Navbar.jsx` | Responsive top bar with role-aware links, logout |
-| `ProtectedRoute.jsx` | Redirects unauthenticated / wrong-role users |
-| `BookingCard.jsx` | Booking list item with status badge, slot time, total, action buttons |
-| `ProviderCard.jsx` | Provider card with rating stars, category badge, Book button |
-| `InvoiceModal.jsx` | Full invoice breakdown: service fee, platform fee (10%), promo discount, tax (5%), net total. Payment status indicator. Browser print support. |
-| `MapView.jsx` | Leaflet/OpenStreetMap map. Accepts `areas[]` (city names resolved to lat/lng) and optional `centerCity` for zoomed-in view with 8km radius circle. Covers 10 major Indian cities. |
-| `StarRating.jsx` | Interactive 1–5 star selector |
-| `CategoryGrid.jsx` | Reusable service category grid |
-| `LoadingSpinner.jsx` | Centered spinner with optional label |
-| `ErrorModal.jsx` | Reusable overlay modal for both errors and success messages |
+| `Navbar` | Role-aware navigation; links change based on `user_role`; logout clears token |
+| `ProtectedRoute` | Wraps role-restricted routes; redirects to `/login` if unauthenticated or wrong role |
+| `BookingCard` | Displays booking summary with status badge, time, location, invoice trigger |
+| `ProviderCard` | Provider avatar (initials), rating stars, category, city tags |
+| `InvoiceModal` | Full invoice breakdown overlay: base → discount → platform fee → GST → net total |
+| `CategoryGrid` | Icon + label grid for service categories on the landing page |
+| `MapView` | Leaflet map centred on India showing service-area markers |
+| `StarRating` | Clickable 1–5 star widget |
+| `ErrorModal` | Standardised overlay for API error messages |
+| `LoadingSpinner` | Centred animated spinner |
 
 ---
 
-## Design System
+## 9. Authentication & Authorization
 
-The frontend uses a custom CSS design system in `styles/global.css` and `styles/components.css`.
+**JWT flow:**
+1. On login, the server signs `{ user_id, username, user_role }` with `JWT_SECRET` (24 h expiry)
+2. The token is stored in `localStorage` under the key `marketplace_token`
+3. The Axios instance attaches `Authorization: Bearer <token>` to every request via a request interceptor
+4. A response interceptor clears the token and redirects to `/login` on any `401`
+5. `AuthContext` decodes the JWT payload client-side (no extra API call) to get role and expiry; stale tokens are purged on app load
+6. `ProtectedRoute` checks `user_role` against `allowedRoles`; wrong-role access redirects to home
+7. Server-side: `requireAuth` middleware verifies the signature with `jwt.verify`; all protected routes double-check resource ownership (e.g., a customer cannot cancel another customer's booking)
 
-### CSS Custom Properties (Design Tokens)
-```css
-/* Colors */
---accent-violet: #7C3AED
---accent-mint: #00F5A0
---bg-primary: dark background
---bg-secondary: slightly lighter panel
---bg-card: glassmorphism card background
---border-subtle / --border-medium / --border-violet
+**Password security:** bcrypt with cost factor 10 (`$2b$10$...`).
 
-/* Typography */
---font-primary: 'DM Sans'
---font-display: 'Syne'
+**Rate limiting:**
+- General API: 500 requests / 15 min per IP
+- Auth endpoints (`/login`, `/register`): 20 requests / 15 min per IP (brute-force protection)
 
-/* Spacing / Radius */
---radius-md, --radius-lg, --radius-xl
+---
+
+## 10. Booking Lifecycle
+
+```
+Customer selects service + slot + address + (optional promo)
+              │
+              ▼
+    POST /api/bookings/create
+              │
+              ▼
+    SP_CREATE_BOOKING (PL/SQL)
+    ├── Validates time within provider slot
+    ├── Checks no overlapping active booking
+    ├── Validates + increments promo use
+    └── INSERTs BOOKING with status = CONFIRMED
+              │
+              ▼
+    Provider sees job on Dashboard
+              │
+              ▼ (provider marks complete)
+    POST /api/bookings/complete/:id
+    ├── UPDATE BOOKINGS status = COMPLETED
+    ├── SP_GENERATE_INVOICE (10% fee + 5% GST)
+    └── Auto-creates PAYMENT record (SUCCESS)
+              │
+              ├──── Customer views invoice via InvoiceModal
+              │
+              └──── Customer leaves review (1-5 stars)
+                         │
+                         ▼
+              TRG_UPDATE_PROVIDER_RATING fires
+              └── Recalculates rating_avg + jobs_completed
+                  on SERVICE_PROVIDERS
 ```
 
-### Animations
-- `.animate-fade-up` — slide-in + fade entrance with `animation-delay` staggering
-- `.shimmer` — skeleton loading pulse (for provider list skeletons)
-- `float-a / float-b / float-c` — slow floating background orbs on hero sections
-- `spin` — used on the Refresh button icon during loading
-
-### Component Classes
-`btn`, `btn-primary`, `btn-mint`, `btn-outline`, `btn-ghost`, `btn-danger`, `btn-success`, `btn-sm`, `btn-lg`, `card`, `stats-grid`, `stat-card`, `stat-icon`, `form-group`, `form-label`, `form-input`, `form-select`, `form-error`, `badge`, `badge-pending`, `badge-confirmed`, `badge-completed`, `badge-cancelled`, `booking-card`, `booking-card-header`, `booking-card-footer`, `modal-overlay`, `modal-box`, `search-bar`, `map-container`
+**Cancellation path:**
+```
+POST /api/bookings/cancel/:id
+    │
+    ▼
+SP_CANCEL_BOOKING
+├── Guard: cannot cancel COMPLETED or already CANCELLED
+├── UPDATE BOOKINGS status = CANCELLED
+├── Reopens availability slot (is_available = 1)
+├── INSERTs CANCELLATIONS audit row
+└── If payment was SUCCESS/COMPLETED → REFUNDED
+```
 
 ---
 
-## Security & Constraints for AI Agents
+## 11. Running the Project
 
-If you are an AI coding agent working on this project, adhere strictly to the following:
+### Prerequisites
+- Oracle Database (XE is fine) running locally
+- Node.js ≥ 18
+- Oracle Instant Client (required by `oracledb` v6 in thick mode)
 
-1. **Docker**: Oracle runs in Docker — if the container is stopped, run `docker start oracleXE`
-2. **Oracle User**: Never run project SQL as the system user — always use `marketplace`. The command `ALTER SESSION SET "_ORACLE_SCRIPT"=TRUE` was needed during initial setup due to CDB architecture.
-3. **Bind Variables Only**: Never use string concatenation in SQL — always use numbered bind variables (`:1`, `:2`) or named binds in `oracledb`.
-4. **Stored Procedures**: Must be called via `BEGIN sp_name(:p1, :p2); END;` syntax.
-5. **Cursor Binds**: `fn_recommend_providers` returns a `SYS_REFCURSOR` — bind type must be `oracledb.CURSOR`.
-6. **JWT Contents**: Tokens contain `{ user_id, username, user_role }` — use `req.user` (set by `middleware/auth.js`) for all authorization logic.
-7. **Role Hierarchy**: `ADMIN > PROVIDER > CUSTOMER` — enforce role checks at route level, not just middleware.
-8. **Connection Lifecycle**: Always acquire connection in `try`, release in `finally`. Never let connections leak.
-9. **Rate Limits**: Auth endpoints are limited to 20 req/15min. General API is 500 req/15min (raised to handle dashboard polling).
-10. **API Response Shape**: Always return `{ success: true, data: ... }` or `{ success: false, error: { code, message } }`.
+### 1 — Initialize the Database
+
+Connect to Oracle as your schema user and run:
+```sql
+@init.sql
+```
+This drops and recreates all tables, views, PL/SQL objects, and inserts seed data in one shot.
+
+### 2 — Configure the Backend
+
+Create `backend/.env`:
+```env
+DB_USER=your_oracle_username
+DB_PASS=your_oracle_password
+DB_HOST=localhost
+DB_PORT=1521
+DB_SID=XE
+JWT_SECRET=your_super_secret_key
+PORT=3000
+```
+
+### 3 — Start the Backend
+```bash
+cd backend
+npm install
+npm run dev      # uses nodemon; or: node server.js
+```
+Server starts at `http://localhost:3000`.
+
+### 4 — Start the Frontend
+```bash
+cd frontend
+npm install
+npm run dev      # Vite dev server
+```
+App available at `http://localhost:5173` (or Vite's chosen port).
+
+---
+
+## 12. Seed Data / Demo Credentials
+
+All seed accounts use password: **`pass123`**
+
+| Username | Role | Profile |
+|----------|------|---------|
+| `john_cust` | CUSTOMER | John Doe, Mumbai |
+| `sara_cust` | CUSTOMER | Sara Mehta, Bangalore |
+| `bob_pro` | PROVIDER | Bob Builder — Plumbing, Mumbai, 12 yrs exp |
+| `dave_pro` | PROVIDER | Dave Spark — Electrical, Bangalore, 8 yrs exp |
+| `priya_pro` | PROVIDER | Priya Verma — Cleaning, Bangalore, 5 yrs exp |
+| `admin` | ADMIN | Platform administrator |
+
+**Seeded service areas:** Mumbai (MH), Delhi (DL), Bangalore (KA), Hyderabad (TS), Manipal (KA)
+
+**Seeded promo codes:**
+- `SAVE10` — 10% off, max ₹150 discount, min order ₹200 (valid 1 year)
+- `WELCOME20` — 20% off, max ₹200 discount, min order ₹300 (valid 1 year)
+
+**Demo booking:** `john_cust` has one completed booking for "Pipe Leak Fix" (2 hrs × ₹350 = ₹700 base), with a fully generated invoice (`net_total ₹805`) and a 5-star review already persisted.
