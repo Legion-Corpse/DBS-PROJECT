@@ -29,6 +29,7 @@ export default function Navbar() {
       { to: '/provider/dashboard', label: 'Dashboard' },
       { to: '/provider/services',  label: 'My Services' },
       { to: '/provider/slots',     label: 'My Slots' },
+      { to: '/provider/areas',     label: 'My Areas' },
     ],
     ADMIN: [
       { to: '/admin/dashboard',  label: 'Revenue' },

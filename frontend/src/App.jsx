@@ -19,6 +19,7 @@ import CustomerSupport from './pages/customer/Support';
 import ProviderDashboard from './pages/provider/Dashboard';
 import ManageSlots from './pages/provider/ManageSlots';
 import ManageServices from './pages/provider/ManageServices';
+import ManageAreas from './pages/provider/ManageAreas';
 import JobComplete from './pages/provider/JobComplete';
 
 // Admin
@@ -112,6 +113,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['PROVIDER']}>
               <ManageServices />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/provider/areas"
+          element={
+            <ProtectedRoute allowedRoles={['PROVIDER']}>
+              <ManageAreas />
             </ProtectedRoute>
           }
         />
