@@ -13,7 +13,6 @@ import Browse from './pages/customer/Browse';
 import BookingForm from './pages/customer/BookingForm';
 import MyBookings from './pages/customer/MyBookings';
 import ReviewForm from './pages/customer/ReviewForm';
-import CustomerSupport from './pages/customer/Support';
 
 // Provider
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -26,8 +25,6 @@ import JobComplete from './pages/provider/JobComplete';
 import AdminDashboard from './pages/admin/Dashboard';
 import ErrorLogs from './pages/admin/ErrorLogs';
 import AdminProviders from './pages/admin/Providers';
-import AdminSupportTickets from './pages/admin/SupportTickets';
-import AdminFeedback from './pages/admin/Feedback';
 
 export default function App() {
   return (
@@ -42,138 +39,23 @@ export default function App() {
         <Route path="/register" element={<Navigate to="/register/customer" replace />} />
 
         {/* Customer */}
-        <Route
-          path="/customer/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={['CUSTOMER']}>
-              <CustomerDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customer/browse"
-          element={
-            <ProtectedRoute allowedRoles={['CUSTOMER']}>
-              <Browse />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customer/book/:providerId"
-          element={
-            <ProtectedRoute allowedRoles={['CUSTOMER']}>
-              <BookingForm />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customer/bookings"
-          element={
-            <ProtectedRoute allowedRoles={['CUSTOMER']}>
-              <MyBookings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customer/review/:bookingId"
-          element={
-            <ProtectedRoute allowedRoles={['CUSTOMER']}>
-              <ReviewForm />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customer/support"
-          element={
-            <ProtectedRoute allowedRoles={['CUSTOMER']}>
-              <CustomerSupport />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/customer/dashboard" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><CustomerDashboard /></ProtectedRoute>} />
+        <Route path="/customer/browse" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><Browse /></ProtectedRoute>} />
+        <Route path="/customer/book/:providerId" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><BookingForm /></ProtectedRoute>} />
+        <Route path="/customer/bookings" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><MyBookings /></ProtectedRoute>} />
+        <Route path="/customer/review/:bookingId" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><ReviewForm /></ProtectedRoute>} />
 
         {/* Provider */}
-        <Route
-          path="/provider/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={['PROVIDER']}>
-              <ProviderDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/provider/slots"
-          element={
-            <ProtectedRoute allowedRoles={['PROVIDER']}>
-              <ManageSlots />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/provider/services"
-          element={
-            <ProtectedRoute allowedRoles={['PROVIDER']}>
-              <ManageServices />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/provider/areas"
-          element={
-            <ProtectedRoute allowedRoles={['PROVIDER']}>
-              <ManageAreas />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/provider/complete/:bookingId"
-          element={
-            <ProtectedRoute allowedRoles={['PROVIDER']}>
-              <JobComplete />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/provider/dashboard" element={<ProtectedRoute allowedRoles={['PROVIDER']}><ProviderDashboard /></ProtectedRoute>} />
+        <Route path="/provider/slots" element={<ProtectedRoute allowedRoles={['PROVIDER']}><ManageSlots /></ProtectedRoute>} />
+        <Route path="/provider/services" element={<ProtectedRoute allowedRoles={['PROVIDER']}><ManageServices /></ProtectedRoute>} />
+        <Route path="/provider/areas" element={<ProtectedRoute allowedRoles={['PROVIDER']}><ManageAreas /></ProtectedRoute>} />
+        <Route path="/provider/complete/:bookingId" element={<ProtectedRoute allowedRoles={['PROVIDER']}><JobComplete /></ProtectedRoute>} />
 
         {/* Admin */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/errors"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <ErrorLogs />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/providers"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <AdminProviders />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/support"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <AdminSupportTickets />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/feedback"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <AdminFeedback />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/errors" element={<ProtectedRoute allowedRoles={['ADMIN']}><ErrorLogs /></ProtectedRoute>} />
+        <Route path="/admin/providers" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminProviders /></ProtectedRoute>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

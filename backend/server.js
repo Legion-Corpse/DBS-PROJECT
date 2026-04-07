@@ -30,17 +30,12 @@ const bookingsRoutes = require('./routes/bookings');
 const invoicesRoutes = require('./routes/invoices');
 const adminRoutes = require('./routes/admin');
 const reviewsRoutes = require('./routes/reviews');
-const supportRoutes = require('./routes/support');
-const feedbackRoutes = require('./routes/feedback');
-
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/providers', providersRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/invoices', invoicesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewsRoutes);
-app.use('/api/support', supportRoutes);
-app.use('/api/feedback', feedbackRoutes);
 
 app.use((err, req, res, next) => {
     console.error(err);
