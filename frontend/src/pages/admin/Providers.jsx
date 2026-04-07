@@ -218,57 +218,56 @@ export default function AdminProviders() {
             })}
           </div>
         )}
-      </div>
 
-        {/* Service Areas Management */}
-        <div style={{ marginTop: '3rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-            <FiMapPin style={{ color: 'var(--accent-mint)' }} />
-            <h3>Service Areas</h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
-              ({areas.length} cities)
-            </span>
-          </div>
+          {/* Service Areas Management */}
+          <div style={{ marginTop: '3rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <FiMapPin style={{ color: 'var(--accent-mint)' }} />
+              <h3>Service Areas</h3>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
+                ({areas.length} cities)
+              </span>
+            </div>
 
-          {/* Add area form */}
-          <form onSubmit={handleAddArea} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-            <input
-              className="form-input"
-              style={{ flex: '1', minWidth: '160px' }}
-              placeholder="City name (e.g. Pune)"
-              value={areaForm.cityName}
-              onChange={e => setAreaForm({ ...areaForm, cityName: e.target.value })}
-              maxLength={100}
-            />
-            <input
-              className="form-input"
-              style={{ width: '100px' }}
-              placeholder="Code (e.g. MH)"
-              value={areaForm.regionCode}
-              onChange={e => setAreaForm({ ...areaForm, regionCode: e.target.value.toUpperCase() })}
-              maxLength={10}
-            />
-            <button type="submit" className="btn btn-primary" disabled={addingArea || !areaForm.cityName || !areaForm.regionCode}>
-              <FiPlus size={14} /> {addingArea ? 'Adding…' : 'Add City'}
-            </button>
-          </form>
+            {/* Add area form */}
+            <form onSubmit={handleAddArea} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              <input
+                className="form-input"
+                style={{ flex: '1', minWidth: '160px' }}
+                placeholder="City name (e.g. Pune)"
+                value={areaForm.cityName}
+                onChange={e => setAreaForm({ ...areaForm, cityName: e.target.value })}
+                maxLength={100}
+              />
+              <input
+                className="form-input"
+                style={{ width: '100px' }}
+                placeholder="Code (e.g. MH)"
+                value={areaForm.regionCode}
+                onChange={e => setAreaForm({ ...areaForm, regionCode: e.target.value.toUpperCase() })}
+                maxLength={10}
+              />
+              <button type="submit" className="btn btn-primary" disabled={addingArea || !areaForm.cityName || !areaForm.regionCode}>
+                <FiPlus size={14} /> {addingArea ? 'Adding…' : 'Add City'}
+              </button>
+            </form>
 
-          {/* Areas list */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {areas.map(a => (
-              <div key={a.AREA_ID} style={{
-                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                borderRadius: 99, padding: '0.35rem 0.9rem', fontSize: '0.85rem'
-              }}>
-                <FiMapPin size={11} style={{ color: 'var(--accent-mint)' }} />
-                <span>{a.CITY_NAME}</span>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>· {a.REGION_CODE}</span>
-              </div>
-            ))}
+            {/* Areas list */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {areas.map(a => (
+                <div key={a.AREA_ID} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                  borderRadius: 99, padding: '0.35rem 0.9rem', fontSize: '0.85rem'
+                }}>
+                  <FiMapPin size={11} style={{ color: 'var(--accent-mint)' }} />
+                  <span>{a.CITY_NAME}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>· {a.REGION_CODE}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
       {error && <ErrorModal message={error} onClose={() => setError(null)} />}
       {success && <ErrorModal message={success} type="success" onClose={() => setSuccess(null)} />}
